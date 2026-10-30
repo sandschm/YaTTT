@@ -305,7 +305,9 @@ export const mockApi = {
   getAuthStatus: async () => authStatus(),
   startBrowserLogin: async () => {
     mockEmit("login-window", "opened");
+    mockEmit("login-progress", "Warte auf Anmeldung im Fenster …");
     await delay(1500);
+    mockEmit("login-window", "closed");
     authenticated = true;
     mockEmit("auth-changed", authStatus());
     return authStatus();

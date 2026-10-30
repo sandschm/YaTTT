@@ -259,7 +259,7 @@
           <div class="field">
             <label for="jira-url">Jira-URL</label>
             <input id="jira-url" type="url" placeholder="https://jira.firma.de oder https://firma.atlassian.net" bind:value={draft.jira.baseUrl} oninput={change} />
-            <span class="hint">Bei Data Center ggf. mit Kontextpfad, z. B. https://tools.firma.de/jira</span>
+            <span class="hint">Jira Cloud: nur die Domain, z. B. https://firma.atlassian.net (ohne /jira). Data Center ggf. mit Kontextpfad, z. B. https://tools.firma.de/jira. Eingefügte Ticket- oder Board-Links werden automatisch gekürzt.</span>
           </div>
           <div class="field">
             <span class="label-text">Anmeldeart</span>
@@ -294,6 +294,11 @@
               <button class="btn" type="button" onclick={() => api.cancelBrowserLogin()}>Anmeldefenster schließen</button>
               <span class="faint">Bitte im geöffneten Fenster bei Jira anmelden …</span>
             {/if}
+          </div>
+          {#if store.loginWindowOpen && store.loginProgress}
+            <div class="progress"><span class="spin"><Icon name="refresh" size={13} /></span> {store.loginProgress}</div>
+          {/if}
+          <div class="row wrap" style="display:none">
             {#if auth.authenticated}
               <button class="btn" type="button" onclick={disconnect}>Abmelden</button>
             {/if}
@@ -682,6 +687,17 @@
   }
   .weekdays .field {
     margin-bottom: 8px;
+  }
+  .progress {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--text-2);
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
   }
   .error {
     color: var(--danger);

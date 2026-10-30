@@ -90,7 +90,16 @@ die Gültigkeitsdauer der Session.
 7. Falls der IdP das eingebettete Fenster ablehnt (Meldung wie „Dieser Browser wird nicht
    unterstützt“): Meldung notieren; dann ist OAuth 2.0 über den Systembrowser der nächste Schritt.
 
-## 6. Bekannte Einschränkungen
+## 6. Erster Test gegen die echte Instanz (30.10.2026)
+
+Jira Cloud (`acme.atlassian.net`): Der SSO-Login im Fenster hat funktioniert, die App las
+`tenant.session.token`, `atlassian.account.xsrf.token` und weitere Cookies aus. Die Sitzungsprüfung
+schlug trotzdem fehl, weil die Jira-URL mit dem UI-Pfad `/jira` eingetragen war; die REST-API von
+Jira Cloud liegt immer unter der Domain-Wurzel. Behoben: URLs werden beim Speichern normalisiert
+(Cloud: nur Origin; Data Center: UI-Pfade wie `/browse/…` entfernt, Kontextpfad bleibt), die
+Prüfung läuft periodisch und meldet ihren Stand im Einstellungsdialog.
+
+## 7. Bekannte Einschränkungen
 
 - Atlassian bezeichnet Cookie-Authentifizierung für externe Clients als veraltet. Der Browser
   selbst arbeitet damit, eine Garantie gibt es dafür aber nicht.

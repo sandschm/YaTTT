@@ -57,10 +57,10 @@ async fn browser_login_inner(app: &AppHandle, state: &Arc<AppState>) -> Result<A
         return Err("Bitte zuerst die Jira-URL eintragen".into());
     }
     let base_url = Url::parse(&base).map_err(|e| format!("Ungültige Jira-URL: {e}"))?;
-    let login_url = Url::parse(&format!(
-        "{base}/login.jsp?os_destination=%2Fsecure%2FDashboard.jspa"
-    ))
-    .map_err(|e| e.to_string())?;
+    // `login.jsp` exists on Data Center and redirects to Atlassian ID on Cloud. The destination is
+    // the site root so that no instance-specific page can 404 after the login.
+    let login_url =
+        Url::parse(&format!("{base}/login.jsp?os_destination=%2F")).map_err(|e| e.to_string())?;
 
     if let Some(existing) = app.get_webview_window(LOGIN_WINDOW) {
         let _ = existing.close();
@@ -78,15 +78,23 @@ async fn browser_login_inner(app: &AppHandle, state: &Arc<AppState>) -> Result<A
     emit(app, "login-window", "opened");
 
     let deadline = tokio::time::Instant::now() + Duration::from_secs(15 * 60);
-    let mut last_probe: Option<String> = None;
+    let mut last_fingerprint: Option<String> = None;
+    let mut last_result = String::from("Warte auf Anmeldung im Fenster …");
+    let mut ticks: u32 = 0;
+    emit(app, "login-progress", last_result.clone());
     loop {
         tokio::time::sleep(Duration::from_millis(1500)).await;
+        ticks += 1;
         if app.get_webview_window(LOGIN_WINDOW).is_none() {
             emit(app, "login-window", "closed");
-            return Err("Anmeldung abgebrochen".into());
+            return Err(format!(
+                "Anmeldung abgebrochen. Letzte Prüfung: {last_result}"
+            ));
         }
         if tokio::time::Instant::now() > deadline {
-            return Err("Zeitüberschreitung bei der Anmeldung".into());
+            return Err(format!(
+                "Zeitüberschreitung bei der Anmeldung. Letzte Prüfung: {last_result}"
+            ));
         }
         let cookies = match window.cookies_for_url(base_url.clone()) {
             Ok(c) => c.iter().map(to_stored).collect::<Vec<_>>(),
@@ -98,21 +106,24 @@ async fn browser_login_inner(app: &AppHandle, state: &Arc<AppState>) -> Result<A
         if cookies.is_empty() {
             continue;
         }
-        tracing::debug!(
-            "login window cookies for {}: {:?}",
-            base_url.host_str().unwrap_or(""),
-            cookies.iter().map(|c| c.name.as_str()).collect::<Vec<_>>()
-        );
-        // Only probe when the cookie set changed; avoids hammering Jira while the user types.
+        let names: Vec<&str> = cookies.iter().map(|c| c.name.as_str()).collect();
+        // Probe when the cookie set changed, and every few seconds anyway: a session may become
+        // valid without a cookie change (e.g. after a redirect chain finishes).
         let fingerprint = cookies
             .iter()
             .map(|c| format!("{}={}", c.name, c.value))
             .collect::<Vec<_>>()
             .join(";");
-        if last_probe.as_deref() == Some(fingerprint.as_str()) {
+        let changed = last_fingerprint.as_deref() != Some(fingerprint.as_str());
+        if !changed && !ticks.is_multiple_of(4) {
             continue;
         }
-        last_probe = Some(fingerprint);
+        last_fingerprint = Some(fingerprint);
+        tracing::debug!(
+            "probing session for {} with cookies {:?}",
+            base_url.host_str().unwrap_or(""),
+            names
+        );
         let probe = match JiraClient::new(
             &base,
             Credential::Cookies {
@@ -123,18 +134,46 @@ async fn browser_login_inner(app: &AppHandle, state: &Arc<AppState>) -> Result<A
             Ok(c) => c,
             Err(e) => return Err(e.to_string()),
         };
+        let session_cookies: Vec<&str> = names
+            .iter()
+            .copied()
+            .filter(|n| {
+                matches!(
+                    *n,
+                    "JSESSIONID"
+                        | "tenant.session.token"
+                        | "cloud.session.token"
+                        | "seraph.rememberme.cookie"
+                )
+            })
+            .collect();
         match probe.myself().await {
             Ok(user) => {
                 tracing::info!("browser login succeeded for {}", user.display_name);
+                emit(
+                    app,
+                    "login-progress",
+                    format!("Sitzung erkannt: {}", user.display_name),
+                );
                 let status = install_client(app, state, Credential::Cookies { cookies }).await?;
                 return Ok(status);
             }
-            Err(yattt_core::Error::AuthExpired(_)) => continue,
+            Err(yattt_core::Error::AuthExpired(code)) => {
+                last_result = if session_cookies.is_empty() {
+                    format!("noch keine Sitzung (HTTP {code})")
+                } else {
+                    format!("Sitzungs-Cookies vorhanden ({}), Jira akzeptiert sie noch nicht (HTTP {code})", session_cookies.join(", "))
+                };
+            }
+            Err(yattt_core::Error::Http { status: 404, .. }) => {
+                last_result = format!("{base}/rest/api/2/myself antwortet 404 – die Jira-URL ist vermutlich falsch (bei Jira Cloud nur https://<firma>.atlassian.net)");
+            }
             Err(e) => {
-                tracing::debug!("probe failed: {e}");
-                continue;
+                last_result = format!("Prüfung fehlgeschlagen: {e}");
             }
         }
+        tracing::debug!("probe result: {last_result}");
+        emit(app, "login-progress", last_result.clone());
     }
 }
 

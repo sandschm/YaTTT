@@ -265,11 +265,8 @@ pub struct Settings {
 
 impl Settings {
     pub fn validate(&self) -> Result<()> {
-        if !self.jira.base_url.is_empty() {
-            let url = url::Url::parse(&self.jira.base_url)?;
-            if url.scheme() != "https" && url.scheme() != "http" {
-                return Err(Error::InvalidUrl("Nur http(s) wird unterstützt".into()));
-            }
+        if !self.jira.base_url.trim().is_empty() {
+            normalize_jira_url(&self.jira.base_url)?;
         }
         if self.refresh.interval_minutes == 0 && self.refresh.auto {
             return Err(Error::Invalid(
@@ -279,10 +276,64 @@ impl Settings {
         Ok(())
     }
 
-    /// Base URL without trailing slash.
+    /// Normalized base URL without trailing slash (see [`normalize_jira_url`]).
     pub fn jira_base(&self) -> String {
-        self.jira.base_url.trim_end_matches('/').to_string()
+        normalize_jira_url(&self.jira.base_url)
+            .unwrap_or_else(|_| self.jira.base_url.trim_end_matches('/').to_string())
     }
+}
+
+/// Turns whatever the user pasted into the REST base URL of the Jira instance.
+///
+/// * Jira Cloud (`*.atlassian.net`, `*.jira.com`): the API always lives at the origin, UI paths
+///   such as `/jira/software/...` or `/jira/your-work` are dropped.
+/// * Data Center: UI paths (`/browse/KEY`, `/secure/...`, `/projects/...`, `/issues/...`,
+///   `/plugins/...`, `/rest/...`) are dropped, a context path like `/jira` is kept.
+pub fn normalize_jira_url(input: &str) -> Result<String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Ok(String::new());
+    }
+    let with_scheme = if trimmed.contains("://") {
+        trimmed.to_string()
+    } else {
+        format!("https://{trimmed}")
+    };
+    let mut url = url::Url::parse(&with_scheme)?;
+    if url.scheme() != "https" && url.scheme() != "http" {
+        return Err(Error::InvalidUrl("Nur http(s) wird unterstützt".into()));
+    }
+    let host = url
+        .host_str()
+        .ok_or_else(|| Error::InvalidUrl("Kein Host in der URL".into()))?
+        .to_lowercase();
+    url.set_query(None);
+    url.set_fragment(None);
+    let is_cloud = host.ends_with(".atlassian.net") || host.ends_with(".jira.com");
+    let path = if is_cloud {
+        String::new()
+    } else {
+        const UI_MARKERS: &[&str] = &[
+            "/browse/",
+            "/secure/",
+            "/projects/",
+            "/issues/",
+            "/plugins/",
+            "/rest/",
+            "/login.jsp",
+            "/jira/software/",
+            "/servicedesk/",
+        ];
+        let mut p = url.path().to_string();
+        let lower = p.to_lowercase();
+        let cut = UI_MARKERS.iter().filter_map(|m| lower.find(m)).min();
+        if let Some(i) = cut {
+            p.truncate(i);
+        }
+        p.trim_end_matches('/').to_string()
+    };
+    url.set_path(&path);
+    Ok(url.as_str().trim_end_matches('/').to_string())
 }
 
 /// Well-known locations for app data.
@@ -378,6 +429,44 @@ mod tests {
         let mut s = Settings::default();
         s.jira.base_url = "ftp://x".into();
         assert!(s.validate().is_err());
+    }
+
+    #[test]
+    fn normalizes_cloud_and_dc_urls() {
+        assert_eq!(
+            normalize_jira_url("https://acme.atlassian.net/jira").unwrap(),
+            "https://acme.atlassian.net"
+        );
+        assert_eq!(
+            normalize_jira_url("https://x.atlassian.net/jira/software/projects/ABC/boards/1?x=1")
+                .unwrap(),
+            "https://x.atlassian.net"
+        );
+        assert_eq!(
+            normalize_jira_url("x.atlassian.net").unwrap(),
+            "https://x.atlassian.net"
+        );
+        assert_eq!(
+            normalize_jira_url("https://jira.firma.de/browse/ABC-1").unwrap(),
+            "https://jira.firma.de"
+        );
+        assert_eq!(
+            normalize_jira_url("https://tools.firma.de/jira/secure/Dashboard.jspa").unwrap(),
+            "https://tools.firma.de/jira"
+        );
+        assert_eq!(
+            normalize_jira_url("https://tools.firma.de/jira/").unwrap(),
+            "https://tools.firma.de/jira"
+        );
+        assert_eq!(
+            normalize_jira_url("https://jira.firma.de/rest/api/2/myself").unwrap(),
+            "https://jira.firma.de"
+        );
+        assert_eq!(normalize_jira_url("  ").unwrap(), "");
+        assert!(normalize_jira_url("ftp://jira.firma.de").is_err());
+        let mut s = Settings::default();
+        s.jira.base_url = "https://acme.atlassian.net/jira".into();
+        assert_eq!(s.jira_base(), "https://acme.atlassian.net");
     }
 
     #[test]

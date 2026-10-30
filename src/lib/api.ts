@@ -346,7 +346,8 @@ export type AppEvent =
   | "exit-requested"
   | "settings-changed"
   | "sync-done"
-  | "login-window";
+  | "login-window"
+  | "login-progress";
 
 export function on<T = unknown>(event: AppEvent, handler: (payload: T) => void): Promise<UnlistenFn> {
   if (!isTauri) {

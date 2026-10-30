@@ -31,8 +31,10 @@ pub fn get_settings(state: S<'_>) -> Settings {
 pub async fn save_settings(
     app: AppHandle,
     state: S<'_>,
-    settings: Settings,
+    mut settings: Settings,
 ) -> Result<Settings, String> {
+    settings.jira.base_url =
+        yattt_core::settings::normalize_jira_url(&settings.jira.base_url).map_err(err)?;
     settings.validate().map_err(err)?;
     let old = state.settings();
     yattt_core::settings::save_settings(&state.paths, &settings).map_err(err)?;

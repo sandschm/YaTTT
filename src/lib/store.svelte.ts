@@ -23,6 +23,7 @@ class AppStore {
   toasts = $state<Toast[]>([]);
   entriesVersion = $state(0);
   loginWindowOpen = $state(false);
+  loginProgress = $state("");
   ready = $state(false);
   autoSwitched = false;
 
@@ -80,7 +81,11 @@ class AppStore {
       await on<IdlePrompt>("idle-prompt", (p) => (this.idlePrompt = p)),
       await on<"quit" | "shutdown">("exit-requested", (reason) => (this.exitRequested = reason ?? "quit")),
       await on<Settings>("settings-changed", (s) => (this.settings = s)),
-      await on<string>("login-window", (s) => (this.loginWindowOpen = s === "opened")),
+      await on<string>("login-window", (s) => {
+        this.loginWindowOpen = s === "opened";
+        if (!this.loginWindowOpen) this.loginProgress = "";
+      }),
+      await on<string>("login-progress", (s) => (this.loginProgress = s)),
       await on<{ booked: number[]; failed: [number, string][] }>("sync-done", (s) => {
         if (s.booked.length) this.toast(`${s.booked.length} ${s.booked.length === 1 ? "Eintrag" : "Einträge"} nach Jira gebucht`, "success");
         if (s.failed.length) this.toast(`${s.failed.length} Buchung(en) fehlgeschlagen`, "error");
