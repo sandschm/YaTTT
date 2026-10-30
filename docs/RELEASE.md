@@ -39,6 +39,10 @@ Repository-Secrets setzen:
 Windows-Code-Signing lässt sich über `bundle.windows.certificateThumbprint` in
 `src-tauri/tauri.conf.json` und ein im Runner installiertes Zertifikat ergänzen.
 
+Hinweis: Die Signatur-Variablen werden im Workflow nur exportiert, wenn die Secrets gesetzt sind.
+Ein leerer `APPLE_CERTIFICATE`-Wert lässt den macOS-Build sonst beim Signieren scheitern (so
+geschehen beim ersten Release-Lauf v0.1.0).
+
 ## Lokaler Build
 
 ```bash
