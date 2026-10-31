@@ -76,7 +76,7 @@ Linux benötigt WebKitGTK 4.1 und ein Tray-fähiges Desktop (unter GNOME ggf. di
 „Browser-Anmeldung“ lassen, **Anmelden**. Im Login-Fenster meldest du dich wie gewohnt an, mit SSO
 und zweitem Faktor. Kein API-Token, kein gespeichertes Passwort.
 
-<img src="docs/screenshots/step-1-verbinden.png" width="560" alt="Einstellungen: Jira-URL und Anmeldeart">
+<img src="docs/screenshots/step-1-verbinden.png" width="760" alt="Einstellungen: Jira-URL und Anmeldeart">
 
 ### 2️⃣ Projekte wählen
 
@@ -84,7 +84,7 @@ und zweitem Faktor. Kein API-Token, kein gespeichertes Passwort.
 werden ab jetzt automatisch geladen und regelmäßig aktualisiert. Unter **Tickettypen** sind Epics
 bereits ausgeblendet.
 
-<img src="docs/screenshots/step-2-projekte.png" width="560" alt="Einstellungen: Projekte auswählen">
+<img src="docs/screenshots/step-2-projekte.png" width="760" alt="Einstellungen: Projekte auswählen">
 
 ### 3️⃣ Nur euer Team sehen *(optional)*
 
@@ -92,7 +92,7 @@ Arbeiten mehrere Teams in einem Projekt? **Filter je Projekt:** Komponente und/o
 die Komponentenliste des Projekts kommt als Vorschlag. Es werden nur passende Tickets geladen, alle
 anderen Projekte bleiben unberührt.
 
-<img src="docs/screenshots/step-3-filter.png" width="560" alt="Einstellungen: Filter je Projekt nach Komponente und Label">
+<img src="docs/screenshots/step-3-filter.png" width="640" alt="Einstellungen: Filter je Projekt nach Komponente und Label">
 
 ### 4️⃣ Timer starten
 
@@ -100,7 +100,7 @@ anderen Projekte bleiben unberührt.
 Leiste und mit seiner Zeit in der Menüleiste. ⭐ macht ein Ticket zum Favoriten für das Tray-Menü.
 Chips für Komponenten und Labels filtern die Liste per Klick.
 
-<img src="docs/screenshots/step-4-timer.png" width="920" alt="Tickets: Filterleiste, laufender Timer, Start/Stop je Ticket">
+<img src="docs/screenshots/step-4-timer.png" width="760" alt="Tickets: Filterleiste, laufender Timer, Start/Stop je Ticket">
 
 ### 5️⃣ Direkt aus der Menüleiste tracken
 
@@ -117,14 +117,14 @@ Bis zu 15 Favoriten, markiert per ⭐ in der Ticketliste.
 Eintrag zeigt seinen Stand: *lokal*, *gebucht*, *geändert* oder *Fehler*. Gebuchtes wird bei Änderungen
 in Jira nachgezogen.
 
-<img src="docs/screenshots/step-5-zeiten.png" width="920" alt="Zeiten: Tagesliste mit Buchungsstatus">
+<img src="docs/screenshots/step-5-zeiten.png" width="760" alt="Zeiten: Tagesliste mit Buchungsstatus">
 
 ### 7️⃣ Überblick behalten
 
 **Statistik:** Erfasst, Soll und Saldo, Stunden pro Tag, Verteilung nach Projekt, Top-Tickets. Export
 als CSV, JSON oder druckbarer Stundenzettel.
 
-<img src="docs/screenshots/step-6-statistik.png" width="920" alt="Statistik: Kennzahlen und Stunden pro Tag">
+<img src="docs/screenshots/step-6-statistik.png" width="760" alt="Statistik: Kennzahlen und Stunden pro Tag">
 
 > 💡 **Jira Cloud mit Tempo:** unter *Tempo & Buchung* die Tempo-Cloud-API wählen, damit Buchungen sofort
 > in Tempo erscheinen. Jira-Worklogs übernimmt Tempo Cloud erst über Nacht.

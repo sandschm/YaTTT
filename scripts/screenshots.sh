@@ -37,12 +37,14 @@ shoot stats "?view=stats"
 shoot connection "?view=settings&tab=connection"
 shoot selection "?view=settings&tab=selection" 1180 1500
 
-crop "$TMP/tickets.png" "$OUT/tickets.png" 0 0 1180 560
-crop "$TMP/times.png" "$OUT/times.png" 0 0 1180 560
-crop "$TMP/stats.png" "$OUT/stats.png" 0 0 1180 560
-crop "$TMP/connection.png" "$OUT/step-1-verbinden.png" 100 40 500 300
-crop "$TMP/selection.png" "$OUT/step-2-projekte.png" 100 55 500 145
-crop "$TMP/selection.png" "$OUT/step-3-filter.png" 200 205 390 240
-crop "$TMP/tickets.png" "$OUT/step-4-timer.png" 100 40 1080 215
-crop "$TMP/times.png" "$OUT/step-5-zeiten.png" 100 40 1080 200
-crop "$TMP/stats.png" "$OUT/step-6-statistik.png" 100 40 1080 200
+# Full windows (1180×780 CSS px) for the header images.
+cp "$TMP/tickets.png" "$OUT/tickets.png"
+cp "$TMP/times.png" "$OUT/times.png"
+cp "$TMP/stats.png" "$OUT/stats.png"
+# Content-area crops (x ≥ 200 skips the sidebar, y ≥ 80 the timer bar) for the quick guide.
+crop "$TMP/connection.png" "$OUT/step-1-verbinden.png" 200 80 980 600
+crop "$TMP/selection.png" "$OUT/step-2-projekte.png" 200 80 980 320
+crop "$TMP/selection.png" "$OUT/step-3-filter.png" 390 405 780 470
+crop "$TMP/tickets.png" "$OUT/step-4-timer.png" 200 80 980 455
+crop "$TMP/times.png" "$OUT/step-5-zeiten.png" 200 80 980 400
+crop "$TMP/stats.png" "$OUT/step-6-statistik.png" 200 80 980 500

@@ -14,9 +14,13 @@ let delay = args.count > 5 ? (Double(args[5]) ?? 1.5) : 1.5
 
 let app = NSApplication.shared
 app.setActivationPolicy(.prohibited)
+// Screenshots are always light, independent of the system appearance (YATTT_SNAP_DARK=1 for dark).
+let dark = ProcessInfo.processInfo.environment["YATTT_SNAP_DARK"] == "1"
+app.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
 
 let config = WKWebViewConfiguration()
 let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: w, height: h), configuration: config)
+webView.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
 
 // An (unshown) window gives the view a backing store and a run loop target.
 let window = NSWindow(contentRect: webView.frame, styleMask: [.borderless], backing: .buffered, defer: false)
