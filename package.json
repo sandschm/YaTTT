@@ -1,6 +1,6 @@
 {
   "name": "yattt",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Yet another Time Tracking Tool – Zeiterfassung an Jira-Tickets",
   "type": "module",
   "private": true,

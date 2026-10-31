@@ -17,10 +17,11 @@
 2. Änderungen committen, Tag setzen und pushen:
 
 ```bash
-git tag v0.1.0 && git push origin main --tags
+git tag v0.1.1 && git push origin main --tags
 ```
 
-3. Nach dem Lauf den Release-Entwurf unter „Releases“ prüfen und veröffentlichen.
+3. Eintrag in `CHANGELOG.md` ergänzen.
+4. Nach dem Lauf den Release-Entwurf unter „Releases“ prüfen und veröffentlichen.
 
 ## Signierung (optional, empfohlen)
 

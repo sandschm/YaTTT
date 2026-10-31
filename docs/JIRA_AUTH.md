@@ -99,6 +99,10 @@ Jira Cloud liegt immer unter der Domain-Wurzel. Behoben: URLs werden beim Speich
 (Cloud: nur Origin; Data Center: UI-Pfade wie `/browse/…` entfernt, Kontextpfad bleibt), die
 Prüfung läuft periodisch und meldet ihren Stand im Einstellungsdialog.
 
+**Ergebnis (31.10.2026):** Mit der korrigierten Version (0.1.1) wurde der Login per SSO und
+zweitem Faktor gegen die Team-Instanz bestätigt: Sitzung erkannt, Benutzer geladen, Ticketliste
+gefüllt. Der Weg über Browser-Sitzung ohne API-Token ist damit produktiv nutzbar.
+
 ## 7. Bekannte Einschränkungen
 
 - Atlassian bezeichnet Cookie-Authentifizierung für externe Clients als veraltet. Der Browser

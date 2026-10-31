@@ -242,13 +242,13 @@ Der Plan wurde unabhängig geprüft, siehe [PLAN_REVIEW.md](PLAN_REVIEW.md) (15 
 | 14 Reihenfolge | CI ab M1; Heartbeat/Wiederherstellung in M3; Shutdown-Hooks in M4 statt M5; Import vorhandener Worklogs nach v0.1. |
 | 15 Kleinigkeiten | WAL ist aktiv, Backup per SQLite-Backup-API, Logdatei im Datenverzeichnis. |
 
-## 10. Umsetzungsstand (30.10.2026)
+## 10. Umsetzungsstand (31.10.2026)
 
 | Bereich | Stand |
 |---|---|
 | `yattt-core` | Umgesetzt: Settings, verschlüsselte Secrets, Jira-Client (Cloud/DC, Cookie-Rotation, 429-Retry), JQL-Aufbau, Tempo DC/Cloud, SQLite, TimerEngine, Buchung/Sync/Import, Statistik, Export, Rundung, Idle. 47 Tests grün, Clippy ohne Warnungen. |
 | Tauri-App | Umgesetzt: Commands, Login-Webview mit Cookie-Übernahme, Tray (Menü, Titel), Scheduler (Heartbeat, Idle/Sleep, Auto-Refresh, Hintergrund-Sync, Erinnerungen, Backups), globale Tastenkürzel, Autostart, Shutdown-Hooks macOS/Windows, Wiederherstellungsdialog. |
 | Frontend | Umgesetzt: Timer-Leiste, Tickets (Gruppen, Filter, Suche, Favoriten, Soll/Ist), Zeiten (Liste, Woche, Editor, Buchen, Undo), Statistik (KPIs, Balken, Donut, Top-Tickets, Heatmap, Export, Stundenzettel), Einstellungen (7 Bereiche), Dialoge (Idle, Wiederherstellung, Beenden, Notiz). Mock-Backend für Entwicklung im Browser. |
-| CI/Release | Workflows geschrieben (CI auf drei Plattformen, Release per tauri-action mit optionaler Signierung). Noch nicht auf GitHub ausgeführt. |
-| Getestet | Core-Tests; UI im Browser (Mock); native App auf macOS gestartet: Shutdown-Hook installiert, Backup geschrieben, Login-Fenster liest HttpOnly-Cookies gegen eine öffentliche Jira-Instanz. |
-| Offen | Echter SSO/2FA-Login und Buchung gegen die Jira-Instanz des Teams (Checkliste in JIRA_AUTH.md); Windows-/Linux-Builds nur über CI prüfbar; Windows-Shutdown-Hook ungetestet; OAuth 2.0, Cluster-Buchung, Linux-Session-Inhibit als Folgearbeiten. |
+| CI/Release | CI läuft auf GitHub grün (ubuntu-22.04, macOS, Windows). Release-Workflow baut Linux (.deb/.rpm/.AppImage), Windows (.msi/-setup.exe) und macOS (universelles .dmg); Signierung nur, wenn Secrets gesetzt sind. Erstes vollständiges Release: v0.1.1. |
+| Getestet | Core-Tests; UI im Browser (Mock); native App auf macOS: Shutdown-Hook installiert, Backup geschrieben, SSO/2FA-Login gegen die Jira-Cloud-Instanz des Teams bestätigt (31.10.2026). |
+| Offen | Buchung gegen die Jira-Instanz des Teams noch nicht im Echtbetrieb geprüft; Windows-/Linux-Builds nur über CI geprüft; Windows-Shutdown-Hook ungetestet; OAuth 2.0, Cluster-Buchung, Linux-Session-Inhibit als Folgearbeiten. |
