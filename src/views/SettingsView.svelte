@@ -5,7 +5,9 @@
   import Icon from "../components/Icon.svelte";
 
   type Tab = "connection" | "selection" | "filter" | "time" | "behavior" | "tempo" | "info";
-  let tab = $state<Tab>("connection");
+  // Browser mock only: ?tab=selection opens a settings tab directly (used for screenshots).
+  const requestedTab = typeof window !== "undefined" && !("__TAURI_INTERNALS__" in window) ? new URLSearchParams(location.search).get("tab") : null;
+  let tab = $state<Tab>((["connection", "selection", "filter", "time", "behavior", "tempo", "info"].includes(requestedTab ?? "") ? requestedTab : "connection") as Tab);
   const tabs: { id: Tab; label: string }[] = [
     { id: "connection", label: "Verbindung" },
     { id: "selection", label: "Projekte & Sprints" },

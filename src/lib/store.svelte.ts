@@ -1,5 +1,5 @@
 // Global reactive state (Svelte 5 runes). One instance shared by all views.
-import { api, on, type AuthStatus, type FavoriteResult, type IdlePrompt, type Issue, type IssuesSnapshot, type RestorePrompt, type Settings, type TimeEntry } from "./api";
+import { api, isTauri, on, type AuthStatus, type FavoriteResult, type IdlePrompt, type Issue, type IssuesSnapshot, type RestorePrompt, type Settings, type TimeEntry } from "./api";
 
 export type View = "tickets" | "times" | "stats" | "settings";
 
@@ -93,6 +93,11 @@ class AppStore {
         if (s.failed.length) this.toast(`${s.failed.length} Buchung(en) fehlgeschlagen`, "error");
       }),
     );
+    if (!isTauri) {
+      // Browser mock only: ?view=times opens a view directly (used for screenshots).
+      const requested = new URLSearchParams(location.search).get("view");
+      if (requested === "tickets" || requested === "times" || requested === "stats" || requested === "settings") this.view = requested;
+    }
     setInterval(() => (this.now = Date.now()), 1000);
     this.ready = true;
   }

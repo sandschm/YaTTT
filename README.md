@@ -6,6 +6,16 @@ Der Funktionsumfang orientiert sich an [Tyme](https://www.tyme-app.com/de/).
 
 Geschrieben in Rust (Tauri 2, Fachlogik im Crate `yattt-core`) mit einer Svelte-Oberfläche.
 
+<p align="center">
+  <img src="docs/screenshots/tickets.png" width="920" alt="YaTTT: Ticketliste mit laufendem Timer, Komponenten- und Label-Chips">
+</p>
+<p align="center">
+  <img src="docs/screenshots/times.png" width="455" alt="Zeiten: Tagesliste mit Soll/Ist und Buchungsstatus">
+  <img src="docs/screenshots/stats.png" width="455" alt="Statistik: Erfasst, Soll, Saldo, Stunden pro Tag, Verteilung nach Projekt">
+</p>
+
+<sub>Die Screenshots zeigen die Beispieldaten des Browser-Mocks.</sub>
+
 ## Funktionen
 
 - **Timer** pro Ticket: Start/Stop in der Ticketliste, der Timer-Leiste, im Tray-Menü und per
@@ -57,14 +67,61 @@ eine Warnung: Rechtsklick → Öffnen oder `xattr -dr com.apple.quarantine /Appl
 
 Linux benötigt WebKitGTK 4.1 und ein Tray-fähiges Desktop (unter GNOME ggf. die AppIndicator-Erweiterung).
 
-## Erste Schritte
+## Kurzanleitung
 
-1. Einstellungen → Verbindung: Jira-URL eintragen, Anmeldeart wählen, „Anmelden“.
-2. Einstellungen → Projekte & Sprints: Projekte suchen und auswählen; optional zusätzliche Sprints.
-3. Einstellungen → Tickettypen: Typen ausblenden (Epics sind vorausgewählt).
-4. Tickets: Timer per ▶ starten. Zeiten: Einträge prüfen und „Woche buchen“.
-5. Bei Jira Cloud mit Tempo: unter „Tempo & Buchung“ die Tempo-Cloud-API wählen, damit Buchungen
-   sofort in Tempo erscheinen (Jira-Worklogs werden von Tempo Cloud erst über Nacht übernommen).
+### 1️⃣ Verbinden
+
+**Einstellungen → Verbindung:** Jira-URL eintragen (bei Jira Cloud nur `https://firma.atlassian.net`),
+„Browser-Anmeldung“ lassen, **Anmelden**. Im Login-Fenster meldest du dich wie gewohnt an, mit SSO
+und zweitem Faktor. Kein API-Token, kein gespeichertes Passwort.
+
+<img src="docs/screenshots/step-1-verbinden.png" width="560" alt="Einstellungen: Jira-URL und Anmeldeart">
+
+### 2️⃣ Projekte wählen
+
+**Einstellungen → Projekte & Sprints:** Projekte suchen und anhaken. Die Tickets der offenen Sprints
+werden ab jetzt automatisch geladen und regelmäßig aktualisiert. Unter **Tickettypen** sind Epics
+bereits ausgeblendet.
+
+<img src="docs/screenshots/step-2-projekte.png" width="560" alt="Einstellungen: Projekte auswählen">
+
+### 3️⃣ Nur euer Team sehen *(optional)*
+
+Arbeiten mehrere Teams in einem Projekt? **Filter je Projekt:** Komponente und/oder Label eintragen,
+die Komponentenliste des Projekts kommt als Vorschlag. Es werden nur passende Tickets geladen, alle
+anderen Projekte bleiben unberührt.
+
+<img src="docs/screenshots/step-3-filter.png" width="560" alt="Einstellungen: Filter je Projekt nach Komponente und Label">
+
+### 4️⃣ Timer starten
+
+**Tickets:** ▶ startet den Timer am Ticket, ■ stoppt ihn. Der laufende Timer steht oben in der
+Leiste und mit seiner Zeit in der Menüleiste. ⭐ macht ein Ticket zum Favoriten: Favoriten lassen sich
+direkt aus dem Tray-Menü starten und stoppen, auch bei geschlossenem Fenster. Chips für Komponenten
+und Labels filtern die Liste per Klick.
+
+<img src="docs/screenshots/step-4-timer.png" width="920" alt="Tickets: Filterleiste, laufender Timer, Start/Stop je Ticket">
+
+### 5️⃣ Zeiten prüfen und buchen
+
+**Zeiten:** Tagesliste mit Soll/Ist, Einträge anpassen oder nachtragen, dann **Woche buchen**. Jeder
+Eintrag zeigt seinen Stand: *lokal*, *gebucht*, *geändert* oder *Fehler*. Gebuchtes wird bei Änderungen
+in Jira nachgezogen.
+
+<img src="docs/screenshots/step-5-zeiten.png" width="920" alt="Zeiten: Tagesliste mit Buchungsstatus">
+
+### 6️⃣ Überblick behalten
+
+**Statistik:** Erfasst, Soll und Saldo, Stunden pro Tag, Verteilung nach Projekt, Top-Tickets. Export
+als CSV, JSON oder druckbarer Stundenzettel.
+
+<img src="docs/screenshots/step-6-statistik.png" width="920" alt="Statistik: Kennzahlen und Stunden pro Tag">
+
+> 💡 **Jira Cloud mit Tempo:** unter *Tempo & Buchung* die Tempo-Cloud-API wählen, damit Buchungen sofort
+> in Tempo erscheinen. Jira-Worklogs übernimmt Tempo Cloud erst über Nacht.
+>
+> 🔌 **Rechner herunterfahren bei laufendem Timer?** YaTTT hält kurz an und fragt: stoppen oder
+> weiterlaufen lassen. Nach einem Absturz fragt die App beim nächsten Start nach.
 
 ## Entwicklung
 
@@ -84,6 +141,9 @@ Die Oberfläche lässt sich auch ohne Tauri im Browser entwickeln (Mock-Backend 
 ```bash
 npm run dev
 ```
+
+Im Mock öffnen `?view=times|stats|settings` und `?tab=selection` eine Ansicht direkt. Die Screenshots
+in `docs/screenshots/` entstehen daraus mit `scripts/screenshots.sh` (macOS, WebKit-Snapshot in 2x).
 
 Tests und Prüfungen:
 

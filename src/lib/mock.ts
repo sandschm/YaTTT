@@ -45,7 +45,7 @@ const defaultSettings: Settings = {
     onlyAssignedToMe: false,
     hideDone: true,
     extraJql: "",
-    projectFilters: {},
+    projectFilters: { WEB: { labels: ["team-blau"], components: ["Frontend"], matchAll: false } },
   },
   refresh: { auto: true, intervalMinutes: 10 },
   timer: {

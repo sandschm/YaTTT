@@ -1,5 +1,11 @@
 # Änderungen
 
+## Unveröffentlicht
+
+- README mit Screenshots und bebilderter Kurzanleitung in sechs Schritten; Skript
+  `scripts/screenshots.sh` erzeugt die Bilder aus dem Browser-Mock.
+- Browser-Mock: `?view=` und `?tab=` öffnen eine Ansicht direkt.
+
 ## 0.3.0 – 2026-10-31
 
 - Filter je Projekt: Neben Labels lassen sich jetzt Komponenten hinterlegen (Komponentenliste
