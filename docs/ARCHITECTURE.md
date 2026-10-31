@@ -54,7 +54,7 @@ erfolgreichem Remote-DELETE endgültig entfernt.
 | `jobs.rs` | Session wiederherstellen, Client installieren (inkl. Cookie-Rotation → Speicher), Tickets laden, Buchen |
 | `login.rs` | Browser-Login-Fenster, Cookie-Polling, Logout inkl. Löschen der Webview-Daten |
 | `scheduler.rs` | Tick (Heartbeat, Idle/Sleep, Tray-Titel, Erinnerungen), Auto-Refresh, Hintergrund-Sync, Backups |
-| `tray.rs` | Tray-Menü (laufende Timer, Stop, zuletzt genutzte Tickets, Aktualisieren, Beenden), Titel mit Zeit |
+| `tray.rs` | Tray-Menü (laufende Timer, Stop, Favoriten als Check-Einträge zum Starten/Stoppen, zuletzt genutzte Tickets, Aktualisieren, Beenden), Titel mit Zeit |
 | `shutdown/` | macOS `applicationShouldTerminate:` (NSAlert), Windows `WM_QUERYENDSESSION` (Block-Reason + App-Dialog) |
 
 ### Events (Backend → Frontend)

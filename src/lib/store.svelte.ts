@@ -1,5 +1,5 @@
 // Global reactive state (Svelte 5 runes). One instance shared by all views.
-import { api, on, type AuthStatus, type IdlePrompt, type Issue, type IssuesSnapshot, type RestorePrompt, type Settings, type TimeEntry } from "./api";
+import { api, on, type AuthStatus, type FavoriteResult, type IdlePrompt, type Issue, type IssuesSnapshot, type RestorePrompt, type Settings, type TimeEntry } from "./api";
 
 export type View = "tickets" | "times" | "stats" | "settings";
 
@@ -20,6 +20,8 @@ class AppStore {
   idlePrompt = $state<IdlePrompt | null>(null);
   restorePrompt = $state<RestorePrompt | null>(null);
   exitRequested = $state<null | "quit" | "shutdown">(null);
+  /** Set when marking a favorite was refused because the limit is reached. */
+  favoriteLimit = $state<FavoriteResult | null>(null);
   toasts = $state<Toast[]>([]);
   entriesVersion = $state(0);
   loginWindowOpen = $state(false);
@@ -150,6 +152,15 @@ class AppStore {
     } catch (e) {
       this.toast(String(e), "error");
       throw e;
+    }
+  }
+
+  async toggleFavorite(issue: Issue) {
+    try {
+      const result = await api.setFavorite(issue.key, !issue.favorite);
+      if (!result.accepted) this.favoriteLimit = result;
+    } catch (e) {
+      this.toast(String(e), "error");
     }
   }
 

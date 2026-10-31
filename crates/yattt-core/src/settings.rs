@@ -54,6 +54,9 @@ pub struct SelectionSettings {
     pub hide_done: bool,
     /// Optional additional JQL that is AND-ed to the generated query.
     pub extra_jql: String,
+    /// Project key -> labels. For a project with labels only issues carrying at least one of them
+    /// are loaded (projects shared by several teams). Projects without an entry are unfiltered.
+    pub project_labels: BTreeMap<String, Vec<String>>,
 }
 
 impl Default for SelectionSettings {
@@ -66,7 +69,32 @@ impl Default for SelectionSettings {
             only_assigned_to_me: false,
             hide_done: true,
             extra_jql: String::new(),
+            project_labels: BTreeMap::new(),
         }
+    }
+}
+
+impl SelectionSettings {
+    /// Labels configured for `project_key`, trimmed and without empty entries.
+    pub fn labels_for(&self, project_key: &str) -> Vec<String> {
+        self.project_labels
+            .get(project_key)
+            .map(|l| {
+                l.iter()
+                    .map(|x| x.trim().to_string())
+                    .filter(|x| !x.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Drops label filters of projects that are no longer selected and empty entries.
+    pub fn tidy_project_labels(&mut self) {
+        let keys = self.project_keys.clone();
+        self.project_labels.retain(|k, v| {
+            v.retain(|x| !x.trim().is_empty());
+            keys.contains(k) && !v.is_empty()
+        });
     }
 }
 

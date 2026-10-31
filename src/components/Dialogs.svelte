@@ -8,6 +8,7 @@
   const idle = $derived(store.idlePrompt);
   const restore = $derived(store.restorePrompt);
   const exit = $derived(store.exitRequested);
+  const favoriteLimit = $derived(store.favoriteLimit);
 
   const idleMinutes = $derived(idle ? Math.round((store.now - new Date(idle.idleSince).getTime()) / 60000) : 0);
 
@@ -97,6 +98,21 @@
         <button class="btn danger" type="button" onclick={() => respondRestore(entry.id, "discard")}>
           <Icon name="trash" size={15} /> Eintrag verwerfen
         </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if favoriteLimit}
+  <div class="overlay">
+    <div class="dialog" role="alertdialog" aria-modal="true">
+      <h2>Maximal {favoriteLimit.limit} Favoriten</h2>
+      <p>
+        Du hast bereits {favoriteLimit.count} Favoriten markiert. Mehr als {favoriteLimit.limit} sind nicht möglich, damit die Liste im
+        Menüleisten-Symbol übersichtlich bleibt. Entferne zuerst einen Favoriten (Stern am Ticket), um ein weiteres Ticket zu markieren.
+      </p>
+      <div class="actions">
+        <button class="btn primary" type="button" onclick={() => (store.favoriteLimit = null)}>Verstanden</button>
       </div>
     </div>
   </div>

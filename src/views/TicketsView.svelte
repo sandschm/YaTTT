@@ -10,6 +10,7 @@
   let statusFilter = $state<"open" | "done" | "all">("open");
   let onlyMine = $state(false);
   let favoritesOnly = $state(false);
+  let labelFilter = $state("all");
   let addKey = $state("");
   let adding = $state(false);
 
@@ -18,6 +19,7 @@
   const hasSelection = $derived(!!selection && (selection.projectKeys.length > 0 || selection.sprintIds.length > 0));
 
   const types = $derived([...new Set(store.issues.map((i) => i.issueType))].sort());
+  const labels = $derived([...new Set(store.issues.flatMap((i) => i.labels))].sort((a, b) => a.localeCompare(b)));
   const sprints = $derived.by(() => {
     const map = new Map<number, string>();
     for (const i of store.issues) if (i.sprintId != null) map.set(i.sprintId, i.sprintName ?? `Sprint ${i.sprintId}`);
@@ -32,6 +34,7 @@
       if (sprintFilter === "none" && i.sprintId != null) return false;
       if (sprintFilter !== "all" && sprintFilter !== "none" && String(i.sprintId) !== sprintFilter) return false;
       if (typeFilter !== "all" && i.issueType !== typeFilter) return false;
+      if (labelFilter !== "all" && !i.labels.includes(labelFilter)) return false;
       if (statusFilter === "open" && i.statusCategory === "done" && !store.runningFor(i.key)) return false;
       if (statusFilter === "done" && i.statusCategory !== "done") return false;
       if (onlyMine && i.assigneeId !== me) return false;
@@ -116,8 +119,8 @@
     else await store.start(issue.key);
   }
 
-  async function toggleFavorite(issue: Issue) {
-    await api.setFavorite(issue.key, !issue.favorite);
+  function toggleFavorite(issue: Issue) {
+    return store.toggleFavorite(issue);
   }
 
   async function openIssue(key: string) {
@@ -200,6 +203,14 @@
         <option value={t}>{t}</option>
       {/each}
     </select>
+    {#if labels.length}
+      <select bind:value={labelFilter} title="Label">
+        <option value="all">Alle Labels</option>
+        {#each labels as l (l)}
+          <option value={l}>{l}</option>
+        {/each}
+      </select>
+    {/if}
     <select bind:value={statusFilter} title="Status">
       <option value="open">Offen</option>
       <option value="done">Erledigt</option>
@@ -250,6 +261,9 @@
                   </div>
                   <div class="row meta">
                     <span class="badge" class:success={issue.statusCategory === "done"} class:accent={issue.statusCategory === "indeterminate"}>{issue.status}</span>
+                    {#each issue.labels as l (l)}
+                      <button class="label" class:on={labelFilter === l} type="button" onclick={() => (labelFilter = labelFilter === l ? "all" : l)} title="Nach Label filtern">{l}</button>
+                    {/each}
                     {#if issue.sprintName && (sprintFilter === "all" || sprintFilter === "none")}<span class="faint">{issue.sprintName}</span>{/if}
                     {#if issue.assignee}<span class="faint">· {issue.assignee}</span>{/if}
                     {#if issue.dueDate}<span class="faint">· fällig {issue.dueDate}</span>{/if}
@@ -422,6 +436,21 @@
     font-size: 12px;
     color: var(--text-2);
     gap: 6px;
+  }
+  .label {
+    font-size: 11px;
+    line-height: 16px;
+    padding: 0 7px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-2);
+    cursor: pointer;
+  }
+  .label:hover,
+  .label.on {
+    border-color: var(--accent);
+    color: var(--accent);
   }
   .budget {
     display: flex;

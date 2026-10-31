@@ -4,6 +4,7 @@ import type {
   AppInfo,
   AuthStatus,
   ExportRow,
+  FavoriteResult,
   IdlePrompt,
   Issue,
   IssueType,
@@ -44,6 +45,7 @@ const defaultSettings: Settings = {
     onlyAssignedToMe: false,
     hideDone: true,
     extraJql: "",
+    projectLabels: {},
   },
   refresh: { auto: true, intervalMinutes: 10 },
   timer: {
@@ -114,6 +116,7 @@ function mkIssue(p: Partial<Issue> & Pick<Issue, "key" | "summary" | "projectKey
     remainingEstimateS: null,
     timeSpentS: null,
     updated: new Date().toISOString(),
+    labels: [],
     favorite: false,
     source: "sprint",
     lastSeen: null,
@@ -121,13 +124,15 @@ function mkIssue(p: Partial<Issue> & Pick<Issue, "key" | "summary" | "projectKey
   };
 }
 
+let favoriteLimit = 15;
+
 let issues: Issue[] = [
-  mkIssue({ key: "WEB-101", summary: "Login-Seite: Fehlermeldung bei abgelaufener Session", projectKey: "WEB", issueType: "Bug", originalEstimateS: 7200, favorite: true, priority: "High" }),
-  mkIssue({ key: "WEB-104", summary: "Dashboard-Widgets per Drag & Drop anordnen", projectKey: "WEB", issueType: "Story", originalEstimateS: 28800, status: "To Do", statusCategory: "new" }),
+  mkIssue({ key: "WEB-101", summary: "Login-Seite: Fehlermeldung bei abgelaufener Session", projectKey: "WEB", issueType: "Bug", originalEstimateS: 7200, favorite: true, priority: "High", labels: ["team-blau", "login"] }),
+  mkIssue({ key: "WEB-104", summary: "Dashboard-Widgets per Drag & Drop anordnen", projectKey: "WEB", issueType: "Story", originalEstimateS: 28800, status: "To Do", statusCategory: "new", labels: ["team-blau"] }),
   mkIssue({ key: "WEB-105", summary: "Widget-Layout speichern", projectKey: "WEB", issueType: "Sub-task", parentKey: "WEB-104", originalEstimateS: 7200 }),
   mkIssue({ key: "WEB-106", summary: "Widget-Reihenfolge laden", projectKey: "WEB", issueType: "Sub-task", parentKey: "WEB-104", originalEstimateS: 3600, status: "To Do", statusCategory: "new" }),
-  mkIssue({ key: "WEB-110", summary: "Barrierefreiheit: Kontraste im Dunkelmodus prüfen", projectKey: "WEB", issueType: "Task", originalEstimateS: 10800, assignee: "Alex Weber", assigneeId: "alex" }),
-  mkIssue({ key: "API-77", summary: "Rate-Limiting für /search Endpunkt", projectKey: "API", issueType: "Story", originalEstimateS: 14400, sprintId: 20, sprintName: "API Sprint 9" }),
+  mkIssue({ key: "WEB-110", summary: "Barrierefreiheit: Kontraste im Dunkelmodus prüfen", projectKey: "WEB", issueType: "Task", originalEstimateS: 10800, assignee: "Alex Weber", assigneeId: "alex", labels: ["team-rot", "a11y"] }),
+  mkIssue({ key: "API-77", summary: "Rate-Limiting für /search Endpunkt", projectKey: "API", issueType: "Story", originalEstimateS: 14400, sprintId: 20, sprintName: "API Sprint 9", labels: ["backend"] }),
   mkIssue({ key: "API-80", summary: "Worklog-Webhook an Tempo weiterleiten", projectKey: "API", issueType: "Task", originalEstimateS: 5400, sprintId: 20, sprintName: "API Sprint 9", status: "Review", statusCategory: "indeterminate" }),
   mkIssue({ key: "API-81", summary: "Flaky Test: SessionRefreshIT", projectKey: "API", issueType: "Bug", sprintId: 20, sprintName: "API Sprint 9", assignee: null, assigneeId: null, status: "To Do", statusCategory: "new" }),
   mkIssue({ key: "OPS-12", summary: "Zertifikat jira.example.com erneuern", projectKey: "OPS", issueType: "Task", sprintId: null, sprintName: null, source: "tracked" }),
@@ -382,10 +387,25 @@ export const mockApi = {
     return { ...refresh };
   },
   getRefreshStatus: async () => ({ ...refresh }),
-  setFavorite: async (key: string, favorite: boolean) => {
+  /** Lets the browser test lower the limit: window.__yatttMock.__setFavoriteLimit(2) */
+  __setFavoriteLimit: (n: number) => {
+    favoriteLimit = n;
+  },
+  setFavorite: async (key: string, favorite: boolean): Promise<FavoriteResult> => {
+    const limit = favoriteLimit;
     const i = issues.find((x) => x.key === key);
+    const count = issues.filter((x) => x.favorite).length;
+    if (favorite && i && !i.favorite && count >= limit) return { accepted: false, limit, count };
     if (i) i.favorite = favorite;
     mockEmit("issues-updated");
+    return { accepted: true, limit, count: issues.filter((x) => x.favorite).length };
+  },
+  searchLabels: async (query: string) => {
+    await delay();
+    const q = query.toLowerCase();
+    const all = new Set<string>(["team-blau", "team-rot", "team-gruen", "hr-core", "payroll", "backend", "login", "a11y"]);
+    for (const i of issues) for (const l of i.labels) all.add(l);
+    return [...all].filter((l) => !q || l.toLowerCase().includes(q)).sort();
   },
   addIssueByKey: async (key: string) => {
     await delay(400);

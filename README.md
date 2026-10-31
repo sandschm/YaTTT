@@ -15,6 +15,11 @@ Geschrieben in Rust (Tauri 2, Fachlogik im Crate `yattt-core`) mit einer Svelte-
   Sprints aller gewählten Projekte werden immer geladen. Tickettypen (z. B. Epics) lassen sich
   ausblenden. Automatische Aktualisierung in konfigurierbarem Intervall plus manueller Refresh.
   Subtasks erscheinen unter ihrem Elternticket, Favoriten oben, Soll/Ist-Balken aus der Schätzung.
+  Labels werden angezeigt und lassen sich als Filter nutzen.
+- **Favoriten** (bis zu 15) stehen im Tray-/Menüleisten-Menü und lassen sich dort per Klick
+  starten und stoppen; ein Häkchen zeigt den laufenden Timer.
+- **Label-Filter je Projekt** für Projekte, an denen mehrere Teams arbeiten: Pro Projekt lassen
+  sich Labels hinterlegen, dann werden nur Tickets mit mindestens einem dieser Labels geladen.
 - **Zeiten**: Tagesliste und Wochen-Timeline, Einträge anlegen, bearbeiten, duplizieren, löschen
   (mit Rückgängig), Soll/Ist pro Tag, Buchungsstatus pro Eintrag.
 - **Buchung nach Jira/Tempo**: als Jira-Worklog, über die Tempo-Timesheets-API (Data Center) oder

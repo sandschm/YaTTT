@@ -186,7 +186,10 @@ Personal Access Token (DC), E-Mail + API-Token (Cloud). Passwort wird nur im Sch
 
 - **Timer-Leiste:** aktueller Timer (Ticket, Zeit, Notiz), Stop, Tagessumme, Schnellstart-Suche.
 - **Tickets:** Gruppen pro Projekt (Farbe), Sprint-Badge, Typ-Icon, Status, Soll/Ist-Balken,
-  Start-Button, Favoriten, Filterleiste (Sprint, Typ, Status, nur meine), Suche, Refresh mit Zeitstempel.
+  Start-Button, Favoriten (max. 15, Hinweisdialog darüber), Filterleiste (Sprint, Typ, Label, Status, nur meine), Suche, Refresh mit Zeitstempel.
+- **Tray:** Favoriten als Check-Einträge; Klick startet bzw. stoppt den Timer, das Häkchen zeigt den laufenden.
+- **Label-Filter je Projekt:** `selection.projectLabels` (Projekt → Labels) ergänzt das JQL um
+  `(project not in (…) OR (project = X AND labels in (…)))`, sodass nur das betroffene Projekt gefiltert wird.
 - **Zeiten:** Tagesliste mit Einträgen und Tagessummen, Bearbeiten/Löschen, Buchungsstatus,
   „Jetzt buchen“; Wochen-Timeline mit Blöcken; Pausen als Lücken.
 - **Statistik:** Zeitraumwahl; Kennzahlen (Soll/Ist, Über-/Unterstunden, Pausen, Billable-Anteil);
@@ -248,7 +251,7 @@ Der Plan wurde unabhängig geprüft, siehe [PLAN_REVIEW.md](PLAN_REVIEW.md) (15 
 |---|---|
 | `yattt-core` | Umgesetzt: Settings, verschlüsselte Secrets, Jira-Client (Cloud/DC, Cookie-Rotation, 429-Retry), JQL-Aufbau, Tempo DC/Cloud, SQLite, TimerEngine, Buchung/Sync/Import, Statistik, Export, Rundung, Idle. 47 Tests grün, Clippy ohne Warnungen. |
 | Tauri-App | Umgesetzt: Commands, Login-Webview mit Cookie-Übernahme, Tray (Menü, Titel), Scheduler (Heartbeat, Idle/Sleep, Auto-Refresh, Hintergrund-Sync, Erinnerungen, Backups), globale Tastenkürzel, Autostart, Shutdown-Hooks macOS/Windows, Wiederherstellungsdialog. |
-| Frontend | Umgesetzt: Timer-Leiste, Tickets (Gruppen, Filter, Suche, Favoriten, Soll/Ist), Zeiten (Liste, Woche, Editor, Buchen, Undo), Statistik (KPIs, Balken, Donut, Top-Tickets, Heatmap, Export, Stundenzettel), Einstellungen (7 Bereiche), Dialoge (Idle, Wiederherstellung, Beenden, Notiz). Mock-Backend für Entwicklung im Browser. |
+| Frontend | Umgesetzt: Timer-Leiste, Tickets (Gruppen, Filter inkl. Labels, Suche, Favoriten mit Limit, Soll/Ist), Zeiten (Liste, Woche, Editor, Buchen, Undo), Statistik (KPIs, Balken, Donut, Top-Tickets, Heatmap, Export, Stundenzettel), Einstellungen (7 Bereiche), Dialoge (Idle, Wiederherstellung, Beenden, Notiz). Mock-Backend für Entwicklung im Browser. |
 | CI/Release | CI läuft auf GitHub grün (ubuntu-22.04, macOS, Windows). Release-Workflow baut Linux (.deb/.rpm/.AppImage), Windows (.msi/-setup.exe) und macOS (universelles .dmg); Signierung nur, wenn Secrets gesetzt sind. Erstes vollständiges Release: v0.1.1. |
 | Getestet | Core-Tests; UI im Browser (Mock); native App auf macOS: Shutdown-Hook installiert, Backup geschrieben, SSO/2FA-Login gegen die Jira-Cloud-Instanz des Teams bestätigt (31.10.2026). |
 | Offen | Buchung gegen die Jira-Instanz des Teams noch nicht im Echtbetrieb geprüft; Windows-/Linux-Builds nur über CI geprüft; Windows-Shutdown-Hook ungetestet; OAuth 2.0, Cluster-Buchung, Linux-Session-Inhibit als Folgearbeiten. |

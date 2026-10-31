@@ -3,7 +3,7 @@
 use crate::state::AppState;
 use chrono::Utc;
 use std::sync::Arc;
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager};
 use yattt_core::format_duration;
@@ -75,14 +75,33 @@ fn handle_menu(app: &AppHandle, state: &Arc<AppState>, id: &str) {
         }
         other => {
             if let Some(key) = other.strip_prefix("start:") {
-                let settings = state.settings();
-                let engine = yattt_core::timer::TimerEngine::new(&state.store, &settings.timer);
-                match engine.start(key, "", None, Utc::now()) {
-                    Ok(_) => crate::after_timer_change(app, state),
-                    Err(e) => tracing::warn!("tray start failed: {e}"),
+                start_issue(app, state, key);
+            } else if let Some(key) = other.strip_prefix("fav:") {
+                // A favorite toggles: running → stop that entry, otherwise start it.
+                let running = state.store.running_entries().unwrap_or_default();
+                match running.iter().find(|e| e.issue_key == key) {
+                    Some(entry) => {
+                        let settings = state.settings();
+                        let engine =
+                            yattt_core::timer::TimerEngine::new(&state.store, &settings.timer);
+                        match engine.stop(entry.id, None, None, Utc::now()) {
+                            Ok(_) => crate::after_timer_change(app, state),
+                            Err(e) => tracing::warn!("tray stop failed: {e}"),
+                        }
+                    }
+                    None => start_issue(app, state, key),
                 }
             }
         }
+    }
+}
+
+fn start_issue(app: &AppHandle, state: &Arc<AppState>, key: &str) {
+    let settings = state.settings();
+    let engine = yattt_core::timer::TimerEngine::new(&state.store, &settings.timer);
+    match engine.start(key, "", None, Utc::now()) {
+        Ok(_) => crate::after_timer_change(app, state),
+        Err(e) => tracing::warn!("tray start failed: {e}"),
     }
 }
 
@@ -131,10 +150,34 @@ fn build_menu(app: &AppHandle, state: &Arc<AppState>) -> tauri::Result<Menu<taur
         )?)?;
     }
     menu.append(&PredefinedMenuItem::separator(app)?)?;
-    let recent = state.store.recent_issue_keys(6).unwrap_or_default();
+    // Favorites: a check mark shows which one is running; a click starts or stops it.
+    let favorites = state.store.favorite_issues().unwrap_or_default();
+    if !favorites.is_empty() {
+        menu.append(&MenuItem::with_id(
+            app,
+            "favorites",
+            "Favoriten",
+            false,
+            None::<&str>,
+        )?)?;
+        for issue in &favorites {
+            let is_running = running.iter().any(|e| e.issue_key == issue.key);
+            let label = format!("{}  {}", issue.key, truncate(&issue.summary, 40));
+            menu.append(&CheckMenuItem::with_id(
+                app,
+                format!("fav:{}", issue.key),
+                label,
+                true,
+                is_running,
+                None::<&str>,
+            )?)?;
+        }
+        menu.append(&PredefinedMenuItem::separator(app)?)?;
+    }
+    let recent = state.store.recent_issue_keys(10).unwrap_or_default();
     let mut added = 0;
     for key in recent {
-        if running.iter().any(|e| e.issue_key == key) {
+        if running.iter().any(|e| e.issue_key == key) || favorites.iter().any(|f| f.key == key) {
             continue;
         }
         let summary = state

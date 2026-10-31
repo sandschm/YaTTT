@@ -80,7 +80,10 @@ pub struct IssueType {
     pub icon_url: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Upper bound for favorites: they are listed in the tray menu, which must stay short.
+pub const MAX_FAVORITES: usize = 15;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Issue {
     pub id: String,
@@ -106,6 +109,9 @@ pub struct Issue {
     pub remaining_estimate_s: Option<i64>,
     pub time_spent_s: Option<i64>,
     pub updated: Option<String>,
+    /// Jira labels of the issue (used for the per-project label filter and the ticket list filter).
+    #[serde(default)]
+    pub labels: Vec<String>,
     pub favorite: bool,
     /// Where this issue came from: "sprint" (open sprint of a selected project), "selected-sprint", "manual" (started by key / search), "tracked".
     pub source: String,

@@ -44,6 +44,7 @@ impl FieldIds {
             "timetracking",
             "updated",
             "project",
+            "labels",
         ]
         .into_iter()
         .map(str::to_string)
@@ -296,6 +297,16 @@ pub fn parse_issue(v: &Value, ids: &FieldIds) -> Option<Issue> {
             .pointer("/timetracking/timeSpentSeconds")
             .and_then(Value::as_i64),
         updated: str_at(fields, "/updated").map(str::to_string),
+        labels: fields
+            .get("labels")
+            .and_then(Value::as_array)
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default(),
         favorite: false,
         source: "sprint".into(),
         last_seen: None,

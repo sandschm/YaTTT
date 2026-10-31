@@ -37,6 +37,33 @@ pub fn build_issue_jql(sel: &SelectionSettings) -> Option<String> {
     if sel.hide_done {
         clauses.push("statusCategory != Done".into());
     }
+    // Per-project label filter: "(project not in (X, Y) OR (project = X AND labels in (...)) OR ...)".
+    let labelled: Vec<(String, Vec<String>)> = sel
+        .project_labels
+        .keys()
+        .map(|k| (k.clone(), sel.labels_for(k)))
+        .filter(|(_, labels)| !labels.is_empty())
+        .collect();
+    if !labelled.is_empty() {
+        let keys = labelled
+            .iter()
+            .map(|(k, _)| quote(k))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let mut alternatives = vec![format!("project not in ({keys})")];
+        for (key, labels) in &labelled {
+            let values = labels
+                .iter()
+                .map(|l| quote(l))
+                .collect::<Vec<_>>()
+                .join(", ");
+            alternatives.push(format!(
+                "(project = {} AND labels in ({values}))",
+                quote(key)
+            ));
+        }
+        clauses.push(format!("({})", alternatives.join(" OR ")));
+    }
     if !sel.excluded_issue_types.is_empty() {
         let types = sel
             .excluded_issue_types
@@ -77,11 +104,40 @@ mod tests {
             only_assigned_to_me: true,
             hide_done: true,
             extra_jql: "labels = urgent".into(),
+            project_labels: Default::default(),
         };
         let jql = build_issue_jql(&sel).unwrap();
         assert_eq!(
             jql,
             "((project in (\"ABC\", \"XY\") AND sprint in openSprints()) OR sprint in (12, 13)) AND assignee = currentUser() AND statusCategory != Done AND issuetype not in (\"Epic\", \"Sub \\\"task\\\"\") AND (labels = urgent) ORDER BY updated DESC"
+        );
+    }
+
+    #[test]
+    fn labels_restrict_only_the_configured_project() {
+        let mut project_labels = std::collections::BTreeMap::new();
+        project_labels.insert(
+            "SHARED".to_string(),
+            vec![
+                "team-blau".to_string(),
+                " hr-core ".to_string(),
+                "".to_string(),
+            ],
+        );
+        // not selected any more: must be ignored
+        project_labels.insert("OLD".to_string(), vec!["x".to_string()]);
+        let mut sel = SelectionSettings {
+            project_keys: vec!["SHARED".into(), "ABC".into()],
+            project_labels,
+            excluded_issue_types: vec![],
+            hide_done: false,
+            ..Default::default()
+        };
+        sel.tidy_project_labels();
+        let jql = build_issue_jql(&sel).unwrap();
+        assert_eq!(
+            jql,
+            "((project in (\"SHARED\", \"ABC\") AND sprint in openSprints())) AND (project not in (\"SHARED\") OR (project = \"SHARED\" AND labels in (\"team-blau\", \"hr-core\"))) ORDER BY updated DESC"
         );
     }
 

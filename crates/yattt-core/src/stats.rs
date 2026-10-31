@@ -359,6 +359,7 @@ mod tests {
                     remaining_estimate_s: None,
                     time_spent_s: None,
                     updated: None,
+                    labels: vec![],
                     favorite: false,
                     source: "sprint".into(),
                     last_seen: None,

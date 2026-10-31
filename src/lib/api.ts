@@ -22,6 +22,8 @@ export interface Settings {
     onlyAssignedToMe: boolean;
     hideDone: boolean;
     extraJql: string;
+    /** Project key -> labels; only issues with at least one of them are loaded for that project. */
+    projectLabels: Record<string, string[]>;
   };
   refresh: { auto: boolean; intervalMinutes: number };
   timer: {
@@ -132,9 +134,17 @@ export interface Issue {
   remainingEstimateS: number | null;
   timeSpentS: number | null;
   updated: string | null;
+  labels: string[];
   favorite: boolean;
   source: string;
   lastSeen: string | null;
+}
+
+export interface FavoriteResult {
+  /** false when the favorite limit is reached; nothing was changed then. */
+  accepted: boolean;
+  limit: number;
+  count: number;
 }
 
 export interface TimeEntry {
@@ -290,7 +300,8 @@ const tauriApi = {
   getIssues: () => invoke<IssuesSnapshot>("get_issues"),
   refreshIssues: () => invoke<RefreshStatus>("refresh_issues"),
   getRefreshStatus: () => invoke<RefreshStatus>("get_refresh_status"),
-  setFavorite: (key: string, favorite: boolean) => invoke<void>("set_favorite", { key, favorite }),
+  setFavorite: (key: string, favorite: boolean) => invoke<FavoriteResult>("set_favorite", { key, favorite }),
+  searchLabels: (query: string) => invoke<string[]>("search_labels", { query }),
   addIssueByKey: (key: string) => invoke<Issue>("add_issue_by_key", { key }),
   setProjectColor: (key: string, color: string | null) => invoke<void>("set_project_color", { key, color }),
   getIssueUrl: (key: string) => invoke<string>("get_issue_url", { key }),

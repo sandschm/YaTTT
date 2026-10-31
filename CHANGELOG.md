@@ -1,5 +1,15 @@
 # Änderungen
 
+## Unveröffentlicht
+
+- Favoriten erscheinen im Tray-/Menüleisten-Menü und lassen sich dort per Klick starten und
+  stoppen (Häkchen = Timer läuft). Es sind höchstens 15 Favoriten möglich; beim Versuch, einen
+  weiteren zu markieren, erscheint ein Hinweisdialog.
+- Label-Filter je Projekt: Für Projekte mit mehreren Teams (z. B. SHARED) lassen sich in den
+  Einstellungen Labels hinterlegen; es werden dann nur Tickets mit mindestens einem dieser Labels
+  geladen. Die Ticketliste zeigt Labels an und bietet einen Label-Filter.
+- Datenbankschema 2: Spalte `labels` an Tickets (wird beim Start automatisch ergänzt).
+
 ## 0.1.1 – 2026-10-31
 
 - Login gegen Jira Cloud: Die Jira-URL wird beim Speichern normalisiert (Cloud: nur die Domain,

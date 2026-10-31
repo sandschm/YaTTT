@@ -144,6 +144,74 @@
     await store.reloadIssues();
   }
 
+  // ---- labels per project (projects shared by several teams)
+  let labelQuery = $state<Record<string, string>>({});
+  let labelSuggestions = $state<Record<string, string[]>>({});
+  let labelFocus = $state<Record<string, boolean>>({});
+  const labelTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+
+  function projectLabels(key: string): string[] {
+    return draft?.selection.projectLabels[key] ?? [];
+  }
+  function localLabels(key: string): string[] {
+    return [...new Set(store.issues.filter((i) => i.projectKey === key).flatMap((i) => i.labels))].sort((a, b) => a.localeCompare(b));
+  }
+  function setLabels(key: string, labels: string[]) {
+    if (!draft) return;
+    const next = { ...draft.selection.projectLabels };
+    if (labels.length) next[key] = labels;
+    else delete next[key];
+    draft.selection.projectLabels = next;
+    change();
+  }
+  function addLabel(key: string, label: string) {
+    const l = label.trim();
+    if (!l) return;
+    const current = projectLabels(key);
+    if (!current.includes(l)) setLabels(key, [...current, l]);
+    labelQuery = { ...labelQuery, [key]: "" };
+    searchLabels(key);
+  }
+  function removeLabel(key: string, label: string) {
+    setLabels(key, projectLabels(key).filter((x) => x !== label));
+  }
+  function toggleLabel(key: string, label: string) {
+    if (projectLabels(key).includes(label)) removeLabel(key, label);
+    else addLabel(key, label);
+  }
+  function onLabelQuery(key: string, value: string) {
+    labelQuery = { ...labelQuery, [key]: value };
+    clearTimeout(labelTimers[key]);
+    labelTimers[key] = setTimeout(() => searchLabels(key), 350);
+  }
+  function onLabelKey(e: KeyboardEvent, key: string) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addLabel(key, labelQuery[key] ?? "");
+    }
+  }
+  function onLabelFocus(key: string) {
+    labelFocus = { ...labelFocus, [key]: true };
+    searchLabels(key);
+  }
+  function onLabelBlur(key: string) {
+    // delayed so that a click on a suggestion still registers
+    setTimeout(() => (labelFocus = { ...labelFocus, [key]: false }), 200);
+  }
+  async function searchLabels(key: string) {
+    const q = (labelQuery[key] ?? "").trim().toLowerCase();
+    const local = localLabels(key).filter((l) => !q || l.toLowerCase().includes(q));
+    let remote: string[] = [];
+    if (q && store.connected) {
+      try {
+        remote = await api.searchLabels(q);
+      } catch {
+        // suggestions are optional; typing + Enter always works
+      }
+    }
+    labelSuggestions = { ...labelSuggestions, [key]: [...new Set([...local, ...remote])].sort((a, b) => a.localeCompare(b)).slice(0, 20) };
+  }
+
   async function searchSprints() {
     if (!store.connected) return;
     sprintsLoading = true;
@@ -354,6 +422,58 @@
               {#if !projectResults.length && !projectsLoading}<li class="faint">Keine Projekte gefunden.</li>{/if}
             </ul>
           </section>
+          {#if selectedProjects.length && draft}
+            <section class="card block">
+              <h3>Labels je Projekt</h3>
+              <p class="hint">
+                Für Projekte, an denen mehrere Teams arbeiten: Trägst du hier Labels ein, werden aus diesem Projekt nur Tickets geladen, die
+                mindestens eines davon haben. Ohne Labels wird das Projekt nicht gefiltert.
+              </p>
+              {#each selectedProjects as p (p.key)}
+                {@const chosen = projectLabels(p.key)}
+                {@const suggestions = (labelSuggestions[p.key] ?? []).filter((l) => !chosen.includes(l))}
+                <div class="label-row">
+                  <span class="mono key" style="color:{store.color(p.key)}">{p.key}</span>
+                  <div class="grow">
+                    {#if chosen.length}
+                      <div class="chips">
+                        {#each chosen as l (l)}
+                          <span class="chip">
+                            <span>{l}</span>
+                            <button type="button" onclick={() => removeLabel(p.key, l)} aria-label="Entfernen"><Icon name="x" size={12} /></button>
+                          </span>
+                        {/each}
+                      </div>
+                    {/if}
+                    <div class="search row">
+                      <Icon name="search" size={15} />
+                      <input
+                        type="search"
+                        placeholder="Label suchen oder eingeben, Enter fügt hinzu …"
+                        value={labelQuery[p.key] ?? ""}
+                        oninput={(e) => onLabelQuery(p.key, (e.target as HTMLInputElement).value)}
+                        onkeydown={(e) => onLabelKey(e, p.key)}
+                        onfocus={() => onLabelFocus(p.key)}
+                        onblur={() => onLabelBlur(p.key)}
+                      />
+                    </div>
+                    {#if (labelFocus[p.key] || (labelQuery[p.key] ?? "").trim()) && suggestions.length}
+                      <ul class="list">
+                        {#each suggestions as l (l)}
+                          <li>
+                            <label class="row">
+                              <input type="checkbox" checked={false} onchange={() => toggleLabel(p.key, l)} />
+                              <span class="grow">{l}</span>
+                            </label>
+                          </li>
+                        {/each}
+                      </ul>
+                    {/if}
+                  </div>
+                </div>
+              {/each}
+            </section>
+          {/if}
           <section class="card block">
             <h3>Zusätzliche Sprints</h3>
             <p class="hint">Sprints der gewählten Projekte, deren Tickets zusätzlich geladen werden sollen (z. B. der nächste Sprint).</p>
@@ -718,6 +838,18 @@
     flex-wrap: wrap;
     gap: 6px;
     margin-bottom: 10px;
+  }
+  .label-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-top: 1px solid var(--border);
+  }
+  .label-row .key {
+    min-width: 90px;
+    padding-top: 6px;
+    font-weight: 600;
   }
   .chip {
     display: inline-flex;

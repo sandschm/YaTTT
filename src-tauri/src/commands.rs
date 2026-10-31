@@ -36,6 +36,7 @@ pub async fn save_settings(
     settings.jira.base_url =
         yattt_core::settings::normalize_jira_url(&settings.jira.base_url).map_err(err)?;
     settings.validate().map_err(err)?;
+    settings.selection.tidy_project_labels();
     let old = state.settings();
     yattt_core::settings::save_settings(&state.paths, &settings).map_err(err)?;
     *state.settings.write().unwrap() = settings.clone();
@@ -251,6 +252,7 @@ pub async fn set_project_selection(
 ) -> Result<Settings, String> {
     let mut settings = state.settings();
     settings.selection.project_keys = projects.iter().map(|p| p.key.clone()).collect();
+    settings.selection.tidy_project_labels();
     let palette = [
         "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316",
     ];
@@ -338,16 +340,40 @@ pub fn get_refresh_status(state: S<'_>) -> RefreshStatus {
     state.refresh.read().unwrap().clone()
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FavoriteResult {
+    /// `false` when the favorite limit is reached and nothing was changed.
+    pub accepted: bool,
+    pub limit: usize,
+    pub count: usize,
+}
+
 #[tauri::command]
 pub fn set_favorite(
     app: AppHandle,
     state: S<'_>,
     key: String,
     favorite: bool,
-) -> Result<(), String> {
-    state.store.set_favorite(&key, favorite).map_err(err)?;
-    emit(&app, "issues-updated", ());
-    Ok(())
+) -> Result<FavoriteResult, String> {
+    let accepted = state.store.set_favorite(&key, favorite).map_err(err)?;
+    let count = state.store.favorite_count().map_err(err)?;
+    if accepted {
+        emit(&app, "issues-updated", ());
+        crate::tray::refresh(&app, &state);
+    }
+    Ok(FavoriteResult {
+        accepted,
+        limit: MAX_FAVORITES,
+        count,
+    })
+}
+
+/// Label suggestions for the per-project label filter.
+#[tauri::command]
+pub async fn search_labels(state: S<'_>, query: String) -> Result<Vec<String>, String> {
+    let jira = state.jira()?;
+    jira.search_labels(&query).await.map_err(err)
 }
 
 #[tauri::command]

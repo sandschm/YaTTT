@@ -471,6 +471,33 @@ impl JiraClient {
         Ok(out)
     }
 
+    /// Label suggestions for the settings dialog. Uses the JQL autocomplete endpoint, which
+    /// exists on Cloud and Data Center and returns site-wide labels matching `query`.
+    pub async fn search_labels(&self, query: &str) -> Result<Vec<String>> {
+        let v = self
+            .get_json(
+                "/rest/api/2/jql/autocompletedata/suggestions",
+                &[
+                    ("fieldName", "labels".to_string()),
+                    ("fieldValue", query.trim().to_string()),
+                ],
+            )
+            .await?;
+        let mut out: Vec<String> = v
+            .get("results")
+            .and_then(Value::as_array)
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|r| r.get("value").and_then(Value::as_str))
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default();
+        out.sort();
+        out.dedup();
+        Ok(out)
+    }
+
     pub async fn issue_types(&self) -> Result<Vec<IssueType>> {
         let v = self.get_json("rest/api/2/issuetype", &[]).await?;
         let mut types: Vec<IssueType> = v
@@ -892,6 +919,33 @@ mod tests {
             client.server_info().await,
             Err(Error::AuthExpired(401))
         ));
+    }
+
+    #[tokio::test]
+    async fn label_suggestions_come_from_autocomplete() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/rest/api/2/jql/autocompletedata/suggestions"))
+            .and(query_param("fieldName", "labels"))
+            .and(query_param("fieldValue", "team"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"results": [
+                {"value": "team-rot", "displayName": "<b>team</b>-rot"},
+                {"value": "team-blau", "displayName": "<b>team</b>-blau"},
+                {"value": "team-blau", "displayName": "<b>team</b>-blau"}
+            ]})))
+            .mount(&server)
+            .await;
+        let client = JiraClient::new(
+            &server.uri(),
+            Credential::Bearer { token: "t".into() },
+            Deployment::DataCenter,
+        )
+        .unwrap();
+        let labels = client.search_labels(" team ").await.unwrap();
+        assert_eq!(
+            labels,
+            vec!["team-blau".to_string(), "team-rot".to_string()]
+        );
     }
 
     #[tokio::test]

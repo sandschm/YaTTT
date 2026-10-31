@@ -148,6 +148,7 @@ pub async fn refresh_issues(
     emit(app, "refresh-status", snapshot.clone());
     if result.is_ok() {
         emit(app, "issues-updated", ());
+        crate::tray::refresh(app, state);
     }
     result.map(|_| snapshot)
 }
