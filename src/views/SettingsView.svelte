@@ -433,7 +433,11 @@
                 {@const chosen = projectLabels(p.key)}
                 {@const suggestions = (labelSuggestions[p.key] ?? []).filter((l) => !chosen.includes(l))}
                 <div class="label-row">
-                  <span class="mono key" style="color:{store.color(p.key)}">{p.key}</span>
+                  <div class="label-project">
+                    <span class="dot" style="background:{store.color(p.key)}"></span>
+                    <span class="mono key">{p.key}</span>
+                    <span class="ellipsis faint">{p.name}</span>
+                  </div>
                   <div class="grow">
                     {#if chosen.length}
                       <div class="chips">
@@ -449,7 +453,7 @@
                       <Icon name="search" size={15} />
                       <input
                         type="search"
-                        placeholder="Label suchen oder eingeben, Enter fügt hinzu …"
+                        placeholder="Label für {p.key} suchen oder eingeben, Enter fügt hinzu …"
                         value={labelQuery[p.key] ?? ""}
                         oninput={(e) => onLabelQuery(p.key, (e.target as HTMLInputElement).value)}
                         onkeydown={(e) => onLabelKey(e, p.key)}
@@ -519,7 +523,8 @@
             <label class="check"><input type="checkbox" bind:checked={draft.selection.hideDone} onchange={change} /><span>Erledigte Tickets nicht laden <span class="hint">Tickets mit Zeiten bleiben sichtbar.</span></span></label>
             <div class="field">
               <label for="jql">Zusätzliche JQL-Bedingung (optional)</label>
-              <input id="jql" type="text" placeholder='z. B. labels = "Team-A"' bind:value={draft.selection.extraJql} oninput={change} />
+              <input id="jql" type="text" placeholder='z. B. labels = "Team-A" AND priority = High' bind:value={draft.selection.extraJql} oninput={change} />
+              <p class="hint">Eine vollständige JQL-Bedingung, die an alle gewählten Projekte angehängt wird. Labels für ein einzelnes Projekt trägst du oben unter „Labels je Projekt“ ein.</p>
             </div>
           </section>
         {/if}
@@ -846,10 +851,22 @@
     padding: 10px 0;
     border-top: 1px solid var(--border);
   }
-  .label-row .key {
-    min-width: 90px;
+  .label-project {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 180px;
+    flex-shrink: 0;
     padding-top: 6px;
+  }
+  .label-project .key {
     font-weight: 600;
+  }
+  .label-project .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
   }
   .chip {
     display: inline-flex;

@@ -179,7 +179,16 @@ async fn refresh_inner(app: &AppHandle, state: &Arc<AppState>) -> Result<usize, 
         Ok(v) => v,
         Err(e) => {
             handle_auth_error(app, state, &e);
-            return Err(e.to_string());
+            let extra = settings.selection.extra_jql.trim();
+            let message = match &e {
+                yattt_core::Error::Http { status: 400, .. } if !extra.is_empty() => format!(
+                    "{e} – vermutlich wegen der zusätzlichen JQL-Bedingung „{extra}“ \
+                     (Einstellungen → Projekte & Sprints). Labels je Projekt werden dort \
+                     direkt zugeordnet."
+                ),
+                _ => e.to_string(),
+            };
+            return Err(message);
         }
     };
     let count = issues.len();

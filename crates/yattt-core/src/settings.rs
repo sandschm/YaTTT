@@ -301,6 +301,7 @@ impl Settings {
                 "Aktualisierungsintervall muss mindestens 1 Minute sein".into(),
             ));
         }
+        check_extra_jql(&self.selection.extra_jql)?;
         Ok(())
     }
 
@@ -435,9 +436,39 @@ pub fn save_settings(paths: &AppPaths, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
+/// A single bare word ("Tim") is never a valid JQL clause; Jira answers HTTP 400 for
+/// `AND (Tim)`. Catch it when saving and point at the label filter instead.
+pub fn check_extra_jql(extra: &str) -> Result<()> {
+    let extra = extra.trim();
+    if extra.is_empty() {
+        return Ok(());
+    }
+    let has_operator = extra.contains(['=', '~', '<', '>', '!', '(', ')']);
+    if !has_operator && !extra.contains(char::is_whitespace) {
+        return Err(Error::Invalid(format!(
+            "„{extra}“ ist keine JQL-Bedingung. Für ein Label: labels = {extra}. \
+             Labels je Projekt ordnest du unter „Projekte & Sprints“ zu."
+        )));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bare_word_is_not_accepted_as_extra_jql() {
+        assert!(check_extra_jql("").is_ok());
+        assert!(check_extra_jql("labels = Tim").is_ok());
+        assert!(check_extra_jql("labels in (a, b)").is_ok());
+        assert!(check_extra_jql("assignee is empty").is_ok());
+        let err = check_extra_jql(" Tim ").unwrap_err().to_string();
+        assert!(err.contains("labels = Tim"), "{err}");
+        let mut settings = Settings::default();
+        settings.selection.extra_jql = "Tim".into();
+        assert!(settings.validate().is_err());
+    }
 
     #[test]
     fn roundtrip_defaults() {

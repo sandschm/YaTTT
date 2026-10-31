@@ -1,5 +1,13 @@
 # Änderungen
 
+## Unveröffentlicht
+
+- Zusätzliche JQL-Bedingung: Ein einzelnes Wort ohne Operator (z. B. „Tim“) wird beim Speichern
+  abgewiesen, mit Hinweis auf `labels = Tim` und die Label-Zuordnung je Projekt. Schlägt die
+  Abfrage mit HTTP 400 fehl, nennt die Meldung die zusätzliche Bedingung als wahrscheinliche Ursache.
+- Einstellungen: „Labels je Projekt“ zeigt Farbe, Key und Namen des Projekts; das JQL-Feld erklärt
+  den Unterschied zur Label-Zuordnung.
+
 ## 0.2.0 – 2026-10-31
 
 - Favoriten erscheinen im Tray-/Menüleisten-Menü und lassen sich dort per Klick starten und
