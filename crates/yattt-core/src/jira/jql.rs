@@ -166,9 +166,10 @@ mod tests {
         };
         sel.tidy_project_filters();
         let jql = build_issue_jql(&sel).unwrap();
+        // filtered projects appear in alphabetical (BTreeMap) order
         assert_eq!(
             jql,
-            "((project in (\"SHARED\", \"PAY\", \"ABC\") AND sprint in openSprints())) AND (project not in (\"SHARED\", \"PAY\") OR (project = \"SHARED\" AND (labels in (\"team-blau\", \"hr-core\") AND component in (\"Time Tracking\"))) OR (project = \"PAY\" AND component in (\"Payroll\"))) ORDER BY updated DESC"
+            "((project in (\"SHARED\", \"PAY\", \"ABC\") AND sprint in openSprints())) AND (project not in (\"PAY\", \"SHARED\") OR (project = \"PAY\" AND component in (\"Payroll\")) OR (project = \"SHARED\" AND (labels in (\"team-blau\", \"hr-core\") AND component in (\"Time Tracking\")))) ORDER BY updated DESC"
         );
         // "one of them is enough" joins with OR
         sel.project_filters.get_mut("SHARED").unwrap().match_all = false;

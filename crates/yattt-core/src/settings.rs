@@ -570,7 +570,8 @@ mod tests {
 
     #[test]
     fn legacy_project_labels_migrate_into_filters() {
-        let raw = r#"{"selection":{"projectKeys":["SHARED"],"projectLabels":{"SHARED":["team-blau"]}}}"#;
+        let raw =
+            r#"{"selection":{"projectKeys":["SHARED"],"projectLabels":{"SHARED":["team-blau"]}}}"#;
         let mut settings: Settings = serde_json::from_str(raw).unwrap();
         settings.selection.migrate_legacy();
         let f = settings.selection.filter_for("SHARED").unwrap();
