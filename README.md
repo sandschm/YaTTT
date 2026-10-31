@@ -10,11 +10,12 @@ Geschrieben in Rust (Tauri 2, Fachlogik im Crate `yattt-core`) mit einer Svelte-
   <img src="docs/screenshots/tickets.png" width="920" alt="YaTTT: Ticketliste mit laufendem Timer, Komponenten- und Label-Chips">
 </p>
 <p align="center">
-  <img src="docs/screenshots/times.png" width="455" alt="Zeiten: Tagesliste mit Soll/Ist und Buchungsstatus">
-  <img src="docs/screenshots/stats.png" width="455" alt="Statistik: Erfasst, Soll, Saldo, Stunden pro Tag, Verteilung nach Projekt">
+  <img src="docs/screenshots/tray.png" width="300" alt="Menüleiste: laufende Zeit neben dem Icon, Menü mit Favoriten zum Starten und Stoppen">
+  <img src="docs/screenshots/stats.png" width="610" alt="Statistik: Erfasst, Soll, Saldo, Stunden pro Tag, Verteilung nach Projekt">
 </p>
 
-<sub>Die Screenshots zeigen die Beispieldaten des Browser-Mocks.</sub>
+<sub>Die App-Screenshots zeigen die Beispieldaten des Browser-Mocks; das Menüleisten-Menü ist mit den
+echten Menüeinträgen nachgestellt.</sub>
 
 ## Funktionen
 
@@ -96,13 +97,21 @@ anderen Projekte bleiben unberührt.
 ### 4️⃣ Timer starten
 
 **Tickets:** ▶ startet den Timer am Ticket, ■ stoppt ihn. Der laufende Timer steht oben in der
-Leiste und mit seiner Zeit in der Menüleiste. ⭐ macht ein Ticket zum Favoriten: Favoriten lassen sich
-direkt aus dem Tray-Menü starten und stoppen, auch bei geschlossenem Fenster. Chips für Komponenten
-und Labels filtern die Liste per Klick.
+Leiste und mit seiner Zeit in der Menüleiste. ⭐ macht ein Ticket zum Favoriten für das Tray-Menü.
+Chips für Komponenten und Labels filtern die Liste per Klick.
 
 <img src="docs/screenshots/step-4-timer.png" width="920" alt="Tickets: Filterleiste, laufender Timer, Start/Stop je Ticket">
 
-### 5️⃣ Zeiten prüfen und buchen
+### 5️⃣ Direkt aus der Menüleiste tracken
+
+Das Fenster kann zu bleiben: Das **Tray-Icon** zeigt die laufende Zeit und das Ticket. Im Menü stehen
+der laufende Timer mit **Timer stoppen**, darunter die **Favoriten**: ein Klick startet den Timer für
+dieses Ticket, ein Klick auf den laufenden (✓) stoppt ihn. Zuletzt genutzte Tickets stehen mit ▶ darunter.
+Bis zu 15 Favoriten, markiert per ⭐ in der Ticketliste.
+
+<img src="docs/screenshots/tray.png" width="460" alt="Menüleisten-Menü: laufender Timer, Favoriten mit Häkchen, zuletzt genutzte Tickets">
+
+### 6️⃣ Zeiten prüfen und buchen
 
 **Zeiten:** Tagesliste mit Soll/Ist, Einträge anpassen oder nachtragen, dann **Woche buchen**. Jeder
 Eintrag zeigt seinen Stand: *lokal*, *gebucht*, *geändert* oder *Fehler*. Gebuchtes wird bei Änderungen
@@ -110,7 +119,7 @@ in Jira nachgezogen.
 
 <img src="docs/screenshots/step-5-zeiten.png" width="920" alt="Zeiten: Tagesliste mit Buchungsstatus">
 
-### 6️⃣ Überblick behalten
+### 7️⃣ Überblick behalten
 
 **Statistik:** Erfasst, Soll und Saldo, Stunden pro Tag, Verteilung nach Projekt, Top-Tickets. Export
 als CSV, JSON oder druckbarer Stundenzettel.
@@ -143,7 +152,8 @@ npm run dev
 ```
 
 Im Mock öffnen `?view=times|stats|settings` und `?tab=selection` eine Ansicht direkt. Die Screenshots
-in `docs/screenshots/` entstehen daraus mit `scripts/screenshots.sh` (macOS, WebKit-Snapshot in 2x).
+in `docs/screenshots/` entstehen daraus mit `scripts/screenshots.sh` (macOS, WebKit-Snapshot in
+Retina-Auflösung); das Menüleisten-Bild rendert `scripts/tray-mockup.html`.
 
 Tests und Prüfungen:
 

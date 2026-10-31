@@ -2,8 +2,9 @@
 
 ## Unveröffentlicht
 
-- README mit Screenshots und bebilderter Kurzanleitung in sechs Schritten; Skript
-  `scripts/screenshots.sh` erzeugt die Bilder aus dem Browser-Mock.
+- README mit Screenshots und bebilderter Kurzanleitung in sieben Schritten, darunter das
+  Menüleisten-Menü mit Favoriten; Skript `scripts/screenshots.sh` erzeugt die Bilder aus dem
+  Browser-Mock und einer Nachbildung des Tray-Menüs.
 - Browser-Mock: `?view=` und `?tab=` öffnen eine Ansicht direkt.
 
 ## 0.3.0 – 2026-10-31

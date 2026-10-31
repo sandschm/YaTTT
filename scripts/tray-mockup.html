@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>YaTTT – Menüleisten-Menü (Darstellung)</title>
+<style>
+  /* Recreation of the macOS menu bar item and its menu, built from the entries in
+     src-tauri/src/tray.rs. Rendered by scripts/screenshots.sh; __ICON__ is replaced with the
+     app icon as a data URI. */
+  :root {
+    color-scheme: light;
+    --accent: #2b6de9;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 460px; height: 440px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    color: #1d1d1f;
+    background:
+      radial-gradient(120% 90% at 10% 100%, #f6b26b 0%, rgba(246, 178, 107, 0) 55%),
+      radial-gradient(90% 80% at 90% 90%, #c86dd7 0%, rgba(200, 109, 215, 0) 60%),
+      linear-gradient(160deg, #3a6fd8 0%, #6d4fc4 55%, #2d2a6e 100%);
+    overflow: hidden;
+    position: relative;
+  }
+  .menubar {
+    position: absolute; top: 0; left: 0; right: 0; height: 26px;
+    background: rgba(255, 255, 255, 0.62);
+    backdrop-filter: blur(20px);
+    display: flex; align-items: center; justify-content: flex-end;
+    padding: 0 10px 0 12px; gap: 14px;
+    font-size: 13px; font-weight: 500; color: #1d1d1f;
+  }
+  .menubar .left { margin-right: auto; display: flex; gap: 16px; align-items: center; }
+  .menubar .apple { font-size: 15px; }
+  .menubar .app { font-weight: 700; }
+  .status {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 7px; border-radius: 5px;
+    background: rgba(0, 0, 0, 0.14);
+    font-variant-numeric: tabular-nums;
+  }
+  .status img { width: 18px; height: 18px; border-radius: 4px; display: block; }
+  .status span, .menubar > span { white-space: nowrap; }
+  .glyph { opacity: 0.85; font-size: 12px; }
+  .menu {
+    position: absolute; top: 31px; right: 94px; width: 352px;
+    background: rgba(242, 242, 242, 0.92);
+    backdrop-filter: blur(30px);
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 9px;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.32), 0 1px 2px rgba(0, 0, 0, 0.18);
+    padding: 5px;
+  }
+  .item {
+    position: relative; height: 22px; line-height: 22px;
+    padding: 0 10px 0 22px; border-radius: 5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+  }
+  .item .key { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+  .item.disabled { color: rgba(0, 0, 0, 0.38); }
+  .item.header { color: rgba(0, 0, 0, 0.5); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; height: 20px; line-height: 20px; }
+  .item .check { position: absolute; left: 7px; top: 0; font-weight: 700; }
+  .item.selected { background: var(--accent); color: #fff; }
+  .item.selected .key { color: #fff; }
+  .sep { height: 1px; background: rgba(0, 0, 0, 0.12); margin: 5px 10px; }
+  .caption {
+    position: absolute; left: 16px; bottom: 14px; right: 16px;
+    color: rgba(255, 255, 255, 0.85); font-size: 12px; line-height: 1.4;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  }
+  .caption b { color: #fff; }
+</style>
+</head>
+<body>
+  <div class="menubar">
+    <div class="left"><span class="apple"></span><span class="app">Finder</span></div>
+    <span class="status"><img src="__ICON__" alt=""><span>0:37 WEB-105</span></span>
+    <span class="glyph">📶</span>
+    <span class="glyph">🔋</span>
+    <span>Fr. 31. Okt.&nbsp; 10:52</span>
+  </div>
+
+  <div class="menu" role="menu" aria-label="YaTTT">
+    <div class="item disabled">0:37&nbsp;&nbsp;<span class="key">WEB-105</span> · Widget-Layout speichern</div>
+    <div class="item">Timer stoppen</div>
+    <div class="sep"></div>
+    <div class="item header">Favoriten</div>
+    <div class="item"><span class="check">✓</span><span class="key">WEB-105</span>&nbsp;&nbsp;Widget-Layout speichern</div>
+    <div class="item selected"><span class="key">WEB-101</span>&nbsp;&nbsp;Login-Seite: Fehlermeldung bei abgelaufen…</div>
+    <div class="item"><span class="key">API-80</span>&nbsp;&nbsp;Worklog-Webhook an Tempo weiterleiten</div>
+    <div class="sep"></div>
+    <div class="item">▶ <span class="key">API-77</span>&nbsp;&nbsp;Rate-Limiting für /search Endpunkt</div>
+    <div class="item">▶ <span class="key">OPS-12</span>&nbsp;&nbsp;Zertifikat jira.example.com erneuern</div>
+    <div class="sep"></div>
+    <div class="item">YaTTT anzeigen</div>
+    <div class="item">Tickets aktualisieren</div>
+    <div class="sep"></div>
+    <div class="item">YaTTT beenden</div>
+  </div>
+
+  <div class="caption">
+    <b>Ein Klick auf einen Favoriten startet den Timer</b>, ein Klick auf den laufenden (✓) stoppt ihn.
+    Die Menüleiste zeigt die laufende Zeit, auch bei geschlossenem Fenster.
+  </div>
+</body>
+</html>

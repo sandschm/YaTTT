@@ -24,6 +24,13 @@ crop() {
   echo "$dest"
 }
 
+# Menu bar recreation (the native NSMenu cannot be captured without screen-recording rights).
+ICON=$(base64 < src-tauri/icons/32x32.png | tr -d '\n')
+sed "s|__ICON__|data:image/png;base64,$ICON|" scripts/tray-mockup.html > "$TMP/tray.html"
+"$TMP/snap" "file://$TMP/tray.html" 460 440 "$TMP/raw-tray.png" 1.0 >/dev/null
+sips --resampleWidth 920 "$TMP/raw-tray.png" --out "$OUT/tray.png" >/dev/null
+echo "$OUT/tray.png"
+
 shoot tickets "?view=tickets"
 shoot times "?view=times"
 shoot stats "?view=stats"

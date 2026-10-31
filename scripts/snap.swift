@@ -1,4 +1,5 @@
-// Offscreen WKWebView snapshot at 2x: swift snap.swift <url> <cssWidth> <cssHeight> <out.png> [delaySeconds]
+// Offscreen WKWebView snapshot: swift snap.swift <url> <cssWidth> <cssHeight> <out.png> [delaySeconds]
+// The PNG has the backing scale of the main display (2x on Retina Macs).
 import Cocoa
 import WebKit
 
@@ -10,15 +11,12 @@ guard args.count >= 5, let url = URL(string: args[1]),
 }
 let out = args[4]
 let delay = args.count > 5 ? (Double(args[5]) ?? 1.5) : 1.5
-let scale = 2.0
 
 let app = NSApplication.shared
 app.setActivationPolicy(.prohibited)
 
 let config = WKWebViewConfiguration()
-let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: w * scale, height: h * scale), configuration: config)
-webView.allowsMagnification = true
-webView.setMagnification(CGFloat(scale), centeredAt: .zero)
+let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: w, height: h), configuration: config)
 
 // An (unshown) window gives the view a backing store and a run loop target.
 let window = NSWindow(contentRect: webView.frame, styleMask: [.borderless], backing: .buffered, defer: false)
