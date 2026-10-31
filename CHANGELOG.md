@@ -1,6 +1,6 @@
 # Änderungen
 
-## Unveröffentlicht
+## 0.2.0 – 2026-10-31
 
 - Favoriten erscheinen im Tray-/Menüleisten-Menü und lassen sich dort per Klick starten und
   stoppen (Häkchen = Timer läuft). Es sind höchstens 15 Favoriten möglich; beim Versuch, einen

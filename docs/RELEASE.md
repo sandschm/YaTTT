@@ -17,7 +17,7 @@
 2. Änderungen committen, Tag setzen und pushen:
 
 ```bash
-git tag v0.1.1 && git push origin main --tags
+git tag v0.2.0 && git push origin main --tags
 ```
 
 3. Eintrag in `CHANGELOG.md` ergänzen.
