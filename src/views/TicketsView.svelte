@@ -11,6 +11,7 @@
   let onlyMine = $state(false);
   let favoritesOnly = $state(false);
   let labelFilter = $state("all");
+  let componentFilter = $state("all");
   let addKey = $state("");
   let adding = $state(false);
 
@@ -20,6 +21,7 @@
 
   const types = $derived([...new Set(store.issues.map((i) => i.issueType))].sort());
   const labels = $derived([...new Set(store.issues.flatMap((i) => i.labels))].sort((a, b) => a.localeCompare(b)));
+  const components = $derived([...new Set(store.issues.flatMap((i) => i.components))].sort((a, b) => a.localeCompare(b)));
   const sprints = $derived.by(() => {
     const map = new Map<number, string>();
     for (const i of store.issues) if (i.sprintId != null) map.set(i.sprintId, i.sprintName ?? `Sprint ${i.sprintId}`);
@@ -35,6 +37,7 @@
       if (sprintFilter !== "all" && sprintFilter !== "none" && String(i.sprintId) !== sprintFilter) return false;
       if (typeFilter !== "all" && i.issueType !== typeFilter) return false;
       if (labelFilter !== "all" && !i.labels.includes(labelFilter)) return false;
+      if (componentFilter !== "all" && !i.components.includes(componentFilter)) return false;
       if (statusFilter === "open" && i.statusCategory === "done" && !store.runningFor(i.key)) return false;
       if (statusFilter === "done" && i.statusCategory !== "done") return false;
       if (onlyMine && i.assigneeId !== me) return false;
@@ -203,6 +206,14 @@
         <option value={t}>{t}</option>
       {/each}
     </select>
+    {#if components.length}
+      <select bind:value={componentFilter} title="Komponente">
+        <option value="all">Alle Komponenten</option>
+        {#each components as c (c)}
+          <option value={c}>{c}</option>
+        {/each}
+      </select>
+    {/if}
     {#if labels.length}
       <select bind:value={labelFilter} title="Label">
         <option value="all">Alle Labels</option>
@@ -261,8 +272,11 @@
                   </div>
                   <div class="row meta">
                     <span class="badge" class:success={issue.statusCategory === "done"} class:accent={issue.statusCategory === "indeterminate"}>{issue.status}</span>
+                    {#each issue.components as c (c)}
+                      <button class="label comp" class:on={componentFilter === c} type="button" onclick={() => (componentFilter = componentFilter === c ? "all" : c)} title="Komponente – klicken zum Filtern">{c}</button>
+                    {/each}
                     {#each issue.labels as l (l)}
-                      <button class="label" class:on={labelFilter === l} type="button" onclick={() => (labelFilter = labelFilter === l ? "all" : l)} title="Nach Label filtern">{l}</button>
+                      <button class="label" class:on={labelFilter === l} type="button" onclick={() => (labelFilter = labelFilter === l ? "all" : l)} title="Label – klicken zum Filtern">{l}</button>
                     {/each}
                     {#if issue.sprintName && (sprintFilter === "all" || sprintFilter === "none")}<span class="faint">{issue.sprintName}</span>{/if}
                     {#if issue.assignee}<span class="faint">· {issue.assignee}</span>{/if}
@@ -440,12 +454,17 @@
   .label {
     font-size: 11px;
     line-height: 16px;
+    white-space: nowrap;
     padding: 0 7px;
     border-radius: 999px;
     border: 1px solid var(--border);
     background: var(--surface-2);
     color: var(--text-2);
     cursor: pointer;
+  }
+  .label.comp {
+    border-style: dashed;
+    background: transparent;
   }
   .label:hover,
   .label.on {

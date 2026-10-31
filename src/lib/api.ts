@@ -12,6 +12,15 @@ export type SyncState = "local" | "pending" | "synced" | "modified" | "failed";
 export type IdleDecision = "keep" | "stopAtIdleStart" | "discardIdle";
 export type RestoreDecision = "keepRunning" | "stopAtLastSeen" | "stopNow" | "discard";
 
+export interface ProjectFilter {
+  /** Issue must carry at least one of these labels (empty = no label condition). */
+  labels: string[];
+  /** Issue must have at least one of these components (empty = no component condition). */
+  components: string[];
+  /** With both lists set: true = labels AND components, false = one of them is enough. */
+  matchAll: boolean;
+}
+
 export interface Settings {
   jira: { baseUrl: string; authMethod: AuthMethod; username: string | null };
   selection: {
@@ -22,8 +31,8 @@ export interface Settings {
     onlyAssignedToMe: boolean;
     hideDone: boolean;
     extraJql: string;
-    /** Project key -> labels; only issues with at least one of them are loaded for that project. */
-    projectLabels: Record<string, string[]>;
+    /** Project key -> filter; only matching issues are loaded for that project. */
+    projectFilters: Record<string, ProjectFilter>;
   };
   refresh: { auto: boolean; intervalMinutes: number };
   timer: {
@@ -135,6 +144,7 @@ export interface Issue {
   timeSpentS: number | null;
   updated: string | null;
   labels: string[];
+  components: string[];
   favorite: boolean;
   source: string;
   lastSeen: string | null;
@@ -302,6 +312,7 @@ const tauriApi = {
   getRefreshStatus: () => invoke<RefreshStatus>("get_refresh_status"),
   setFavorite: (key: string, favorite: boolean) => invoke<FavoriteResult>("set_favorite", { key, favorite }),
   searchLabels: (query: string) => invoke<string[]>("search_labels", { query }),
+  listComponents: (projectKey: string) => invoke<string[]>("list_components", { projectKey }),
   addIssueByKey: (key: string) => invoke<Issue>("add_issue_by_key", { key }),
   setProjectColor: (key: string, color: string | null) => invoke<void>("set_project_color", { key, color }),
   getIssueUrl: (key: string) => invoke<string>("get_issue_url", { key }),

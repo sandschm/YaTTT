@@ -1,5 +1,14 @@
 # Änderungen
 
+## 0.3.0 – 2026-10-31
+
+- Filter je Projekt: Neben Labels lassen sich jetzt Komponenten hinterlegen (Komponentenliste
+  des Projekts als Vorschlag, Leerzeichen erlaubt). Sind beides gesetzt, wählt man je Projekt
+  „Komponente und Label“ oder „Komponente oder Label“. Alte Label-Einstellungen werden übernommen.
+- Ticketliste zeigt Komponenten als Chips und bietet einen Komponenten-Filter.
+- Datenbankschema 3: Spalte `components` an Tickets (wird beim Start automatisch ergänzt).
+- Fehlgeschlagene Label-/Komponentensuchen werden ins Log geschrieben.
+
 ## 0.2.1 – 2026-10-31
 
 - Zusätzliche JQL-Bedingung: Ein einzelnes Wort ohne Operator (z. B. „Tim“) wird beim Speichern

@@ -45,7 +45,7 @@ const defaultSettings: Settings = {
     onlyAssignedToMe: false,
     hideDone: true,
     extraJql: "",
-    projectLabels: {},
+    projectFilters: {},
   },
   refresh: { auto: true, intervalMinutes: 10 },
   timer: {
@@ -117,6 +117,7 @@ function mkIssue(p: Partial<Issue> & Pick<Issue, "key" | "summary" | "projectKey
     timeSpentS: null,
     updated: new Date().toISOString(),
     labels: [],
+    components: [],
     favorite: false,
     source: "sprint",
     lastSeen: null,
@@ -127,12 +128,12 @@ function mkIssue(p: Partial<Issue> & Pick<Issue, "key" | "summary" | "projectKey
 let favoriteLimit = 15;
 
 let issues: Issue[] = [
-  mkIssue({ key: "WEB-101", summary: "Login-Seite: Fehlermeldung bei abgelaufener Session", projectKey: "WEB", issueType: "Bug", originalEstimateS: 7200, favorite: true, priority: "High", labels: ["team-blau", "login"] }),
-  mkIssue({ key: "WEB-104", summary: "Dashboard-Widgets per Drag & Drop anordnen", projectKey: "WEB", issueType: "Story", originalEstimateS: 28800, status: "To Do", statusCategory: "new", labels: ["team-blau"] }),
+  mkIssue({ key: "WEB-101", summary: "Login-Seite: Fehlermeldung bei abgelaufener Session", projectKey: "WEB", issueType: "Bug", originalEstimateS: 7200, favorite: true, priority: "High", labels: ["team-blau", "login"], components: ["Auth"] }),
+  mkIssue({ key: "WEB-104", summary: "Dashboard-Widgets per Drag & Drop anordnen", projectKey: "WEB", issueType: "Story", originalEstimateS: 28800, status: "To Do", statusCategory: "new", labels: ["team-blau"], components: ["Dashboard"] }),
   mkIssue({ key: "WEB-105", summary: "Widget-Layout speichern", projectKey: "WEB", issueType: "Sub-task", parentKey: "WEB-104", originalEstimateS: 7200 }),
   mkIssue({ key: "WEB-106", summary: "Widget-Reihenfolge laden", projectKey: "WEB", issueType: "Sub-task", parentKey: "WEB-104", originalEstimateS: 3600, status: "To Do", statusCategory: "new" }),
-  mkIssue({ key: "WEB-110", summary: "Barrierefreiheit: Kontraste im Dunkelmodus prüfen", projectKey: "WEB", issueType: "Task", originalEstimateS: 10800, assignee: "Alex Weber", assigneeId: "alex", labels: ["team-rot", "a11y"] }),
-  mkIssue({ key: "API-77", summary: "Rate-Limiting für /search Endpunkt", projectKey: "API", issueType: "Story", originalEstimateS: 14400, sprintId: 20, sprintName: "API Sprint 9", labels: ["backend"] }),
+  mkIssue({ key: "WEB-110", summary: "Barrierefreiheit: Kontraste im Dunkelmodus prüfen", projectKey: "WEB", issueType: "Task", originalEstimateS: 10800, assignee: "Alex Weber", assigneeId: "alex", labels: ["team-rot", "a11y"], components: ["Frontend"] }),
+  mkIssue({ key: "API-77", summary: "Rate-Limiting für /search Endpunkt", projectKey: "API", issueType: "Story", originalEstimateS: 14400, sprintId: 20, sprintName: "API Sprint 9", labels: ["backend"], components: ["Search"] }),
   mkIssue({ key: "API-80", summary: "Worklog-Webhook an Tempo weiterleiten", projectKey: "API", issueType: "Task", originalEstimateS: 5400, sprintId: 20, sprintName: "API Sprint 9", status: "Review", statusCategory: "indeterminate" }),
   mkIssue({ key: "API-81", summary: "Flaky Test: SessionRefreshIT", projectKey: "API", issueType: "Bug", sprintId: 20, sprintName: "API Sprint 9", assignee: null, assigneeId: null, status: "To Do", statusCategory: "new" }),
   mkIssue({ key: "OPS-12", summary: "Zertifikat jira.example.com erneuern", projectKey: "OPS", issueType: "Task", sprintId: null, sprintName: null, source: "tracked" }),
@@ -399,6 +400,15 @@ export const mockApi = {
     if (i) i.favorite = favorite;
     mockEmit("issues-updated");
     return { accepted: true, limit, count: issues.filter((x) => x.favorite).length };
+  },
+  listComponents: async (projectKey: string) => {
+    await delay();
+    const byProject: Record<string, string[]> = {
+      WEB: ["Auth", "Dashboard", "Frontend", "Reporting"],
+      API: ["Search", "Webhooks", "Worklogs"],
+      OPS: ["Infrastruktur"],
+    };
+    return byProject[projectKey] ?? [];
   },
   searchLabels: async (query: string) => {
     await delay();

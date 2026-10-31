@@ -498,6 +498,28 @@ impl JiraClient {
         Ok(out)
     }
 
+    /// Component names of a project (Cloud and Data Center), sorted.
+    pub async fn project_components(&self, project_key: &str) -> Result<Vec<String>> {
+        let v = self
+            .get_json(
+                &format!("/rest/api/2/project/{project_key}/components"),
+                &[],
+            )
+            .await?;
+        let mut out: Vec<String> = v
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|c| c.get("name").and_then(Value::as_str))
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default();
+        out.sort_by_key(|s| s.to_lowercase());
+        out.dedup();
+        Ok(out)
+    }
+
     pub async fn issue_types(&self) -> Result<Vec<IssueType>> {
         let v = self.get_json("rest/api/2/issuetype", &[]).await?;
         let mut types: Vec<IssueType> = v
@@ -945,6 +967,30 @@ mod tests {
         assert_eq!(
             labels,
             vec!["team-blau".to_string(), "team-rot".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn project_components_are_listed() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/rest/api/2/project/SHARED/components"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+                {"id": "10001", "name": "Time Tracking", "description": "Zeiterfassung"},
+                {"id": "10002", "name": "Payroll"}
+            ])))
+            .mount(&server)
+            .await;
+        let client = JiraClient::new(
+            &server.uri(),
+            Credential::Bearer { token: "t".into() },
+            Deployment::Cloud,
+        )
+        .unwrap();
+        let components = client.project_components("SHARED").await.unwrap();
+        assert_eq!(
+            components,
+            vec!["Payroll".to_string(), "Time Tracking".to_string()]
         );
     }
 

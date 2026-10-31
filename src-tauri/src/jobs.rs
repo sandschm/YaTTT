@@ -183,8 +183,8 @@ async fn refresh_inner(app: &AppHandle, state: &Arc<AppState>) -> Result<usize, 
             let message = match &e {
                 yattt_core::Error::Http { status: 400, .. } if !extra.is_empty() => format!(
                     "{e} – vermutlich wegen der zusätzlichen JQL-Bedingung „{extra}“ \
-                     (Einstellungen → Projekte & Sprints). Labels je Projekt werden dort \
-                     direkt zugeordnet."
+                     (Einstellungen → Projekte & Sprints). Labels und Komponenten je Projekt \
+                     werden dort direkt zugeordnet."
                 ),
                 _ => e.to_string(),
             };

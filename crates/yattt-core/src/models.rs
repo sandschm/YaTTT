@@ -112,6 +112,9 @@ pub struct Issue {
     /// Jira labels of the issue (used for the per-project label filter and the ticket list filter).
     #[serde(default)]
     pub labels: Vec<String>,
+    /// Component names of the issue.
+    #[serde(default)]
+    pub components: Vec<String>,
     pub favorite: bool,
     /// Where this issue came from: "sprint" (open sprint of a selected project), "selected-sprint", "manual" (started by key / search), "tracked".
     pub source: String,

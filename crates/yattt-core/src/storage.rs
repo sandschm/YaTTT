@@ -8,7 +8,7 @@ use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 
 pub struct Store {
     conn: Mutex<Connection>,
@@ -25,7 +25,7 @@ fn parse_ts(s: &str) -> Result<DateTime<Utc>> {
         .map_err(|e| Error::Parse(format!("Zeitstempel '{s}': {e}")))
 }
 
-/// Labels are stored as a JSON array so that any character Jira allows survives the round trip.
+/// Labels and components are stored as JSON arrays so that any character Jira allows survives the round trip.
 fn labels_to_db(labels: &[String]) -> String {
     if labels.is_empty() {
         String::new()
@@ -123,7 +123,8 @@ impl Store {
                 favorite INTEGER NOT NULL DEFAULT 0,
                 source TEXT NOT NULL DEFAULT 'sprint',
                 last_seen TEXT,
-                labels TEXT NOT NULL DEFAULT ''
+                labels TEXT NOT NULL DEFAULT '',
+                components TEXT NOT NULL DEFAULT ''
             );
             CREATE INDEX IF NOT EXISTS idx_issues_project ON issues(project_key);
             CREATE TABLE IF NOT EXISTS time_entries (
@@ -146,16 +147,18 @@ impl Store {
             CREATE INDEX IF NOT EXISTS idx_entries_issue ON time_entries(issue_key);
             CREATE INDEX IF NOT EXISTS idx_entries_running ON time_entries(ended_at) WHERE ended_at IS NULL;",
         )?;
-        // Schema version 2 (0.2.0): labels column on issues. Databases created by version 1 get
-        // the column added in place.
-        let has_labels = conn
+        // Schema version 2 (0.2.0) added `labels`, version 3 (0.3.0) `components`. Older
+        // databases get the missing columns added in place.
+        let columns: Vec<String> = conn
             .prepare("PRAGMA table_info(issues)")?
             .query_map([], |r| r.get::<_, String>(1))?
-            .collect::<std::result::Result<Vec<_>, _>>()?
-            .iter()
-            .any(|c| c == "labels");
-        if !has_labels {
-            conn.execute_batch("ALTER TABLE issues ADD COLUMN labels TEXT NOT NULL DEFAULT ''")?;
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        for column in ["labels", "components"] {
+            if !columns.iter().any(|c| c == column) {
+                conn.execute_batch(&format!(
+                    "ALTER TABLE issues ADD COLUMN {column} TEXT NOT NULL DEFAULT ''"
+                ))?;
+            }
         }
         conn.execute(
             "INSERT INTO meta(key, value) VALUES('schema_version', ?1)
@@ -315,6 +318,7 @@ impl Store {
     fn issue_from_row(r: &Row<'_>) -> rusqlite::Result<Issue> {
         let last_seen: Option<String> = r.get(24)?;
         let labels: String = r.get(25)?;
+        let components: String = r.get(26)?;
         Ok(Issue {
             key: r.get(0)?,
             id: r.get(1)?,
@@ -339,13 +343,14 @@ impl Store {
             time_spent_s: r.get(20)?,
             updated: r.get(21)?,
             labels: labels_from_db(&labels),
+            components: labels_from_db(&components),
             favorite: r.get::<_, i32>(22)? != 0,
             source: r.get(23)?,
             last_seen: last_seen.and_then(|s| parse_ts(&s).ok()),
         })
     }
 
-    const ISSUE_COLUMNS: &'static str = "key, id, project_key, summary, issue_type, issue_type_id, issue_type_icon, is_subtask, status, status_category, parent_key, epic_key, sprint_id, sprint_name, assignee, assignee_id, priority, due_date, original_estimate_s, remaining_estimate_s, time_spent_s, updated, favorite, source, last_seen, labels";
+    const ISSUE_COLUMNS: &'static str = "key, id, project_key, summary, issue_type, issue_type_id, issue_type_icon, is_subtask, status, status_category, parent_key, epic_key, sprint_id, sprint_name, assignee, assignee_id, priority, due_date, original_estimate_s, remaining_estimate_s, time_spent_s, updated, favorite, source, last_seen, labels, components";
 
     /// Insert or update issues. The local `favorite` flag is preserved; `source` is only
     /// upgraded (a tracked issue that appears in a sprint becomes a sprint issue, never the reverse
@@ -357,8 +362,8 @@ impl Store {
             tx.execute(
                 "INSERT INTO issues(key, id, project_key, summary, issue_type, issue_type_id, issue_type_icon, is_subtask,
                     status, status_category, parent_key, epic_key, sprint_id, sprint_name, assignee, assignee_id, priority,
-                    due_date, original_estimate_s, remaining_estimate_s, time_spent_s, updated, favorite, source, last_seen, labels)
-                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26)
+                    due_date, original_estimate_s, remaining_estimate_s, time_spent_s, updated, favorite, source, last_seen, labels, components)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)
                  ON CONFLICT(key) DO UPDATE SET id = excluded.id, project_key = excluded.project_key,
                     summary = excluded.summary, issue_type = excluded.issue_type, issue_type_id = excluded.issue_type_id,
                     issue_type_icon = excluded.issue_type_icon, is_subtask = excluded.is_subtask, status = excluded.status,
@@ -366,7 +371,7 @@ impl Store {
                     sprint_id = excluded.sprint_id, sprint_name = excluded.sprint_name, assignee = excluded.assignee,
                     assignee_id = excluded.assignee_id, priority = excluded.priority, due_date = excluded.due_date,
                     original_estimate_s = excluded.original_estimate_s, remaining_estimate_s = excluded.remaining_estimate_s,
-                    time_spent_s = excluded.time_spent_s, updated = excluded.updated, labels = excluded.labels,
+                    time_spent_s = excluded.time_spent_s, updated = excluded.updated, labels = excluded.labels, components = excluded.components,
                     source = CASE WHEN excluded.source IN ('sprint','selected-sprint') THEN excluded.source ELSE issues.source END,
                     last_seen = excluded.last_seen",
                 params![
@@ -374,7 +379,7 @@ impl Store {
                     i.is_subtask as i32, i.status, i.status_category, i.parent_key, i.epic_key, i.sprint_id,
                     i.sprint_name, i.assignee, i.assignee_id, i.priority, i.due_date, i.original_estimate_s,
                     i.remaining_estimate_s, i.time_spent_s, i.updated, i.favorite as i32, i.source, ts(&now),
-                    labels_to_db(&i.labels)
+                    labels_to_db(&i.labels), labels_to_db(&i.components)
                 ],
             )?;
         }
@@ -1020,6 +1025,7 @@ mod tests {
             time_spent_s: None,
             updated: None,
             labels: vec![],
+            components: vec![],
             favorite: false,
             source: "sprint".into(),
             last_seen: None,
@@ -1053,6 +1059,7 @@ mod tests {
             time_spent_s: None,
             updated: None,
             labels: vec!["team-a".into(), "backend".into()],
+            components: vec!["Time Tracking".into()],
             favorite: false,
             source: "sprint".into(),
             last_seen: None,
@@ -1060,10 +1067,12 @@ mod tests {
         store
             .upsert_issues(std::slice::from_ref(&issue), t(8, 0))
             .unwrap();
+        let loaded = store.get_issue("ABC-1").unwrap().unwrap();
         assert_eq!(
-            store.get_issue("ABC-1").unwrap().unwrap().labels,
+            loaded.labels,
             vec!["team-a".to_string(), "backend".to_string()]
         );
+        assert_eq!(loaded.components, vec!["Time Tracking".to_string()]);
         assert!(store.set_favorite("ABC-1", true).unwrap());
         issue.summary = "Changed".into();
         store

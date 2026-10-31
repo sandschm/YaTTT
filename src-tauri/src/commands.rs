@@ -36,7 +36,7 @@ pub async fn save_settings(
     settings.jira.base_url =
         yattt_core::settings::normalize_jira_url(&settings.jira.base_url).map_err(err)?;
     settings.validate().map_err(err)?;
-    settings.selection.tidy_project_labels();
+    settings.selection.tidy_project_filters();
     let old = state.settings();
     yattt_core::settings::save_settings(&state.paths, &settings).map_err(err)?;
     *state.settings.write().unwrap() = settings.clone();
@@ -252,7 +252,7 @@ pub async fn set_project_selection(
 ) -> Result<Settings, String> {
     let mut settings = state.settings();
     settings.selection.project_keys = projects.iter().map(|p| p.key.clone()).collect();
-    settings.selection.tidy_project_labels();
+    settings.selection.tidy_project_filters();
     let palette = [
         "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316",
     ];
@@ -369,11 +369,24 @@ pub fn set_favorite(
     })
 }
 
-/// Label suggestions for the per-project label filter.
+/// Label suggestions for the per-project filter (site-wide JQL autocomplete).
 #[tauri::command]
 pub async fn search_labels(state: S<'_>, query: String) -> Result<Vec<String>, String> {
     let jira = state.jira()?;
-    jira.search_labels(&query).await.map_err(err)
+    jira.search_labels(&query).await.map_err(|e| {
+        tracing::warn!("label search for {query:?} failed: {e}");
+        err(e)
+    })
+}
+
+/// Component names of one project for the per-project filter.
+#[tauri::command]
+pub async fn list_components(state: S<'_>, project_key: String) -> Result<Vec<String>, String> {
+    let jira = state.jira()?;
+    jira.project_components(&project_key).await.map_err(|e| {
+        tracing::warn!("component list for {project_key} failed: {e}");
+        err(e)
+    })
 }
 
 #[tauri::command]

@@ -284,6 +284,7 @@ pub fn run() {
             commands::get_refresh_status,
             commands::set_favorite,
             commands::search_labels,
+            commands::list_components,
             commands::add_issue_by_key,
             commands::set_project_color,
             commands::get_issue_url,

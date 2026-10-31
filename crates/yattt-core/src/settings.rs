@@ -54,8 +54,11 @@ pub struct SelectionSettings {
     pub hide_done: bool,
     /// Optional additional JQL that is AND-ed to the generated query.
     pub extra_jql: String,
-    /// Project key -> labels. For a project with labels only issues carrying at least one of them
-    /// are loaded (projects shared by several teams). Projects without an entry are unfiltered.
+    /// Project key -> filter. For a project with a filter only issues matching it are loaded
+    /// (projects shared by several teams). Projects without an entry are unfiltered.
+    pub project_filters: BTreeMap<String, ProjectFilter>,
+    /// Pre-0.3 format (labels only); migrated into `project_filters` on load.
+    #[serde(skip_serializing)]
     pub project_labels: BTreeMap<String, Vec<String>>,
 }
 
@@ -69,32 +72,91 @@ impl Default for SelectionSettings {
             only_assigned_to_me: false,
             hide_done: true,
             extra_jql: String::new(),
+            project_filters: BTreeMap::new(),
             project_labels: BTreeMap::new(),
         }
     }
 }
 
-impl SelectionSettings {
-    /// Labels configured for `project_key`, trimmed and without empty entries.
-    pub fn labels_for(&self, project_key: &str) -> Vec<String> {
-        self.project_labels
-            .get(project_key)
-            .map(|l| {
-                l.iter()
-                    .map(|x| x.trim().to_string())
-                    .filter(|x| !x.is_empty())
-                    .collect()
-            })
-            .unwrap_or_default()
+/// Per-project restriction by labels and/or components.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ProjectFilter {
+    /// Issue must carry at least one of these labels (empty = no label condition).
+    pub labels: Vec<String>,
+    /// Issue must have at least one of these components (empty = no component condition).
+    pub components: Vec<String>,
+    /// With both lists set: `true` = labels AND components must match, `false` = one of them is enough.
+    pub match_all: bool,
+}
+
+impl Default for ProjectFilter {
+    fn default() -> Self {
+        Self {
+            labels: vec![],
+            components: vec![],
+            match_all: true,
+        }
+    }
+}
+
+fn clean_list(list: &[String]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for x in list {
+        let x = x.trim();
+        if !x.is_empty() && !out.iter().any(|y| y == x) {
+            out.push(x.to_string());
+        }
+    }
+    out
+}
+
+impl ProjectFilter {
+    pub fn is_empty(&self) -> bool {
+        self.labels.is_empty() && self.components.is_empty()
     }
 
-    /// Drops label filters of projects that are no longer selected and empty entries.
-    pub fn tidy_project_labels(&mut self) {
+    fn cleaned(&self) -> ProjectFilter {
+        ProjectFilter {
+            labels: clean_list(&self.labels),
+            components: clean_list(&self.components),
+            match_all: self.match_all,
+        }
+    }
+}
+
+impl SelectionSettings {
+    /// The cleaned filter of `project_key`, if it restricts anything.
+    pub fn filter_for(&self, project_key: &str) -> Option<ProjectFilter> {
+        self.project_filters
+            .get(project_key)
+            .map(ProjectFilter::cleaned)
+            .filter(|f| !f.is_empty())
+    }
+
+    /// Moves the pre-0.3 label lists into `project_filters`.
+    pub fn migrate_legacy(&mut self) {
+        let legacy = std::mem::take(&mut self.project_labels);
+        for (key, labels) in legacy {
+            let entry = self.project_filters.entry(key).or_default();
+            if entry.labels.is_empty() {
+                entry.labels = labels;
+            }
+        }
+    }
+
+    /// Drops filters of projects that are no longer selected, empty entries and whitespace.
+    pub fn tidy_project_filters(&mut self) {
+        self.migrate_legacy();
         let keys = self.project_keys.clone();
-        self.project_labels.retain(|k, v| {
-            v.retain(|x| !x.trim().is_empty());
-            keys.contains(k) && !v.is_empty()
-        });
+        let cleaned: BTreeMap<String, ProjectFilter> = self
+            .project_filters
+            .iter()
+            .filter(|(k, _)| keys.contains(k))
+            .map(|(k, f)| (k.clone(), f.cleaned()))
+            .filter(|(_, f)| !f.is_empty())
+            .collect();
+        self.project_filters = cleaned;
     }
 }
 
@@ -423,7 +485,8 @@ pub fn load_settings(paths: &AppPaths) -> Result<Settings> {
         return Ok(Settings::default());
     }
     let raw = std::fs::read_to_string(&file)?;
-    let settings: Settings = serde_json::from_str(&raw)?;
+    let mut settings: Settings = serde_json::from_str(&raw)?;
+    settings.selection.migrate_legacy();
     Ok(settings)
 }
 
@@ -456,6 +519,21 @@ pub fn check_extra_jql(extra: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_project_labels_migrate_into_filters() {
+        let raw = r#"{"selection":{"projectKeys":["SHARED"],"projectLabels":{"SHARED":["team-blau"]}}}"#;
+        let mut settings: Settings = serde_json::from_str(raw).unwrap();
+        settings.selection.migrate_legacy();
+        let f = settings.selection.filter_for("SHARED").unwrap();
+        assert_eq!(f.labels, vec!["team-blau".to_string()]);
+        assert!(f.components.is_empty());
+        assert!(f.match_all);
+        assert!(settings.selection.project_labels.is_empty());
+        let json = serde_json::to_string(&settings).unwrap();
+        assert!(!json.contains("projectLabels"));
+        assert!(json.contains("projectFilters"));
+    }
 
     #[test]
     fn bare_word_is_not_accepted_as_extra_jql() {

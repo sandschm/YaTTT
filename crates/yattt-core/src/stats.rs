@@ -360,6 +360,7 @@ mod tests {
                     time_spent_s: None,
                     updated: None,
                     labels: vec![],
+                    components: vec![],
                     favorite: false,
                     source: "sprint".into(),
                     last_seen: None,

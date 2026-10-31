@@ -45,6 +45,7 @@ impl FieldIds {
             "updated",
             "project",
             "labels",
+            "components",
         ]
         .into_iter()
         .map(str::to_string)
@@ -303,6 +304,16 @@ pub fn parse_issue(v: &Value, ids: &FieldIds) -> Option<Issue> {
             .map(|arr| {
                 arr.iter()
                     .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default(),
+        components: fields
+            .get("components")
+            .and_then(Value::as_array)
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|c| c.get("name").and_then(Value::as_str))
                     .map(str::to_string)
                     .collect()
             })

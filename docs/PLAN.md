@@ -186,10 +186,11 @@ Personal Access Token (DC), E-Mail + API-Token (Cloud). Passwort wird nur im Sch
 
 - **Timer-Leiste:** aktueller Timer (Ticket, Zeit, Notiz), Stop, Tagessumme, Schnellstart-Suche.
 - **Tickets:** Gruppen pro Projekt (Farbe), Sprint-Badge, Typ-Icon, Status, Soll/Ist-Balken,
-  Start-Button, Favoriten (max. 15, Hinweisdialog darüber), Filterleiste (Sprint, Typ, Label, Status, nur meine), Suche, Refresh mit Zeitstempel.
+  Start-Button, Favoriten (max. 15, Hinweisdialog darüber), Filterleiste (Sprint, Typ, Komponente, Label, Status, nur meine), Suche, Refresh mit Zeitstempel.
 - **Tray:** Favoriten als Check-Einträge; Klick startet bzw. stoppt den Timer, das Häkchen zeigt den laufenden.
-- **Label-Filter je Projekt:** `selection.projectLabels` (Projekt → Labels) ergänzt das JQL um
-  `(project not in (…) OR (project = X AND labels in (…)))`, sodass nur das betroffene Projekt gefiltert wird.
+- **Filter je Projekt:** `selection.projectFilters` (Projekt → Komponenten, Labels, und/oder) ergänzt das JQL um
+  `(project not in (…) OR (project = X AND (component in (…) AND|OR labels in (…))))`, sodass nur das
+  betroffene Projekt gefiltert wird. Komponenten kommen aus `/rest/api/2/project/{key}/components`.
 - **Zeiten:** Tagesliste mit Einträgen und Tagessummen, Bearbeiten/Löschen, Buchungsstatus,
   „Jetzt buchen“; Wochen-Timeline mit Blöcken; Pausen als Lücken.
 - **Statistik:** Zeitraumwahl; Kennzahlen (Soll/Ist, Über-/Unterstunden, Pausen, Billable-Anteil);

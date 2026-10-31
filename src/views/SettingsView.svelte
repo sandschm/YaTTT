@@ -1,6 +1,6 @@
 <script lang="ts">
   import { store } from "../lib/store.svelte";
-  import { api, type AppInfo, type AuthMethod, type IssueType, type Project, type Settings, type Sprint } from "../lib/api";
+  import { api, type AppInfo, type AuthMethod, type IssueType, type Project, type ProjectFilter, type Settings, type Sprint } from "../lib/api";
   import { formatDate, toDateKey, addDays } from "../lib/format";
   import Icon from "../components/Icon.svelte";
 
@@ -144,72 +144,97 @@
     await store.reloadIssues();
   }
 
-  // ---- labels per project (projects shared by several teams)
-  let labelQuery = $state<Record<string, string>>({});
-  let labelSuggestions = $state<Record<string, string[]>>({});
-  let labelFocus = $state<Record<string, boolean>>({});
-  const labelTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+  // ---- filters per project: labels and/or components (projects shared by several teams)
+  type FilterKind = "labels" | "components";
+  const filterKinds: [FilterKind, string][] = [
+    ["components", "Komponenten"],
+    ["labels", "Labels"],
+  ];
+  let filterQuery = $state<Record<string, string>>({});
+  let filterSuggestions = $state<Record<string, string[]>>({});
+  let filterFocus = $state<Record<string, boolean>>({});
+  let componentCache = $state<Record<string, string[]>>({});
+  const filterTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+  const fid = (kind: FilterKind, key: string) => `${kind}:${key}`;
 
-  function projectLabels(key: string): string[] {
-    return draft?.selection.projectLabels[key] ?? [];
+  function projectFilter(key: string): ProjectFilter {
+    return draft?.selection.projectFilters[key] ?? { labels: [], components: [], matchAll: true };
   }
-  function localLabels(key: string): string[] {
-    return [...new Set(store.issues.filter((i) => i.projectKey === key).flatMap((i) => i.labels))].sort((a, b) => a.localeCompare(b));
+  function chosenValues(kind: FilterKind, key: string): string[] {
+    return projectFilter(key)[kind];
   }
-  function setLabels(key: string, labels: string[]) {
+  function localValues(kind: FilterKind, key: string): string[] {
+    return [...new Set(store.issues.filter((i) => i.projectKey === key).flatMap((i) => i[kind]))];
+  }
+  function setFilter(key: string, patch: Partial<ProjectFilter>) {
     if (!draft) return;
-    const next = { ...draft.selection.projectLabels };
-    if (labels.length) next[key] = labels;
+    const current = { ...projectFilter(key), ...patch };
+    const next = { ...draft.selection.projectFilters };
+    if (current.labels.length || current.components.length) next[key] = current;
     else delete next[key];
-    draft.selection.projectLabels = next;
+    draft.selection.projectFilters = next;
     change();
   }
-  function addLabel(key: string, label: string) {
-    const l = label.trim();
-    if (!l) return;
-    const current = projectLabels(key);
-    if (!current.includes(l)) setLabels(key, [...current, l]);
-    labelQuery = { ...labelQuery, [key]: "" };
-    searchLabels(key);
+  function listPatch(kind: FilterKind, list: string[]): Partial<ProjectFilter> {
+    return kind === "labels" ? { labels: list } : { components: list };
   }
-  function removeLabel(key: string, label: string) {
-    setLabels(key, projectLabels(key).filter((x) => x !== label));
+  function addValue(kind: FilterKind, key: string, value: string) {
+    const v = value.trim();
+    if (!v) return;
+    const current = chosenValues(kind, key);
+    if (!current.includes(v)) setFilter(key, listPatch(kind, [...current, v]));
+    filterQuery = { ...filterQuery, [fid(kind, key)]: "" };
+    searchValues(kind, key);
   }
-  function toggleLabel(key: string, label: string) {
-    if (projectLabels(key).includes(label)) removeLabel(key, label);
-    else addLabel(key, label);
+  function removeValue(kind: FilterKind, key: string, value: string) {
+    setFilter(key, listPatch(kind, chosenValues(kind, key).filter((x) => x !== value)));
   }
-  function onLabelQuery(key: string, value: string) {
-    labelQuery = { ...labelQuery, [key]: value };
-    clearTimeout(labelTimers[key]);
-    labelTimers[key] = setTimeout(() => searchLabels(key), 350);
+  function toggleValue(kind: FilterKind, key: string, value: string) {
+    if (chosenValues(kind, key).includes(value)) removeValue(kind, key, value);
+    else addValue(kind, key, value);
   }
-  function onLabelKey(e: KeyboardEvent, key: string) {
+  function onFilterQuery(kind: FilterKind, key: string, value: string) {
+    const id = fid(kind, key);
+    filterQuery = { ...filterQuery, [id]: value };
+    clearTimeout(filterTimers[id]);
+    filterTimers[id] = setTimeout(() => searchValues(kind, key), 300);
+  }
+  function onFilterKey(e: KeyboardEvent, kind: FilterKind, key: string) {
     if (e.key === "Enter") {
       e.preventDefault();
-      addLabel(key, labelQuery[key] ?? "");
+      addValue(kind, key, filterQuery[fid(kind, key)] ?? "");
     }
   }
-  function onLabelFocus(key: string) {
-    labelFocus = { ...labelFocus, [key]: true };
-    searchLabels(key);
+  function onFilterFocus(kind: FilterKind, key: string) {
+    filterFocus = { ...filterFocus, [fid(kind, key)]: true };
+    searchValues(kind, key);
   }
-  function onLabelBlur(key: string) {
+  function onFilterBlur(kind: FilterKind, key: string) {
     // delayed so that a click on a suggestion still registers
-    setTimeout(() => (labelFocus = { ...labelFocus, [key]: false }), 200);
+    setTimeout(() => (filterFocus = { ...filterFocus, [fid(kind, key)]: false }), 200);
   }
-  async function searchLabels(key: string) {
-    const q = (labelQuery[key] ?? "").trim().toLowerCase();
-    const local = localLabels(key).filter((l) => !q || l.toLowerCase().includes(q));
-    let remote: string[] = [];
-    if (q && store.connected) {
+  async function searchValues(kind: FilterKind, key: string) {
+    const id = fid(kind, key);
+    const q = (filterQuery[id] ?? "").trim().toLowerCase();
+    let pool = localValues(kind, key);
+    if (store.connected) {
       try {
-        remote = await api.searchLabels(q);
+        if (kind === "components") {
+          // components are per project: load the complete list once
+          if (!componentCache[key]) componentCache = { ...componentCache, [key]: await api.listComponents(key) };
+          pool = [...pool, ...componentCache[key]];
+        } else if (q) {
+          pool = [...pool, ...(await api.searchLabels(q))];
+        }
       } catch {
         // suggestions are optional; typing + Enter always works
       }
     }
-    labelSuggestions = { ...labelSuggestions, [key]: [...new Set([...local, ...remote])].sort((a, b) => a.localeCompare(b)).slice(0, 20) };
+    const matches = [...new Set(pool)]
+      .filter((v) => !q || v.toLowerCase().includes(q))
+      .sort((a, b) => a.localeCompare(b))
+      .slice(0, 25);
+    filterSuggestions = { ...filterSuggestions, [id]: matches };
   }
 
   async function searchSprints() {
@@ -424,54 +449,73 @@
           </section>
           {#if selectedProjects.length && draft}
             <section class="card block">
-              <h3>Labels je Projekt</h3>
+              <h3>Filter je Projekt</h3>
               <p class="hint">
-                Für Projekte, an denen mehrere Teams arbeiten: Trägst du hier Labels ein, werden aus diesem Projekt nur Tickets geladen, die
-                mindestens eines davon haben. Ohne Labels wird das Projekt nicht gefiltert.
+                Für Projekte, an denen mehrere Teams arbeiten: Mit Komponenten und/oder Labels werden aus dem Projekt nur passende
+                Tickets geladen. Projekte ohne Einträge bleiben ungefiltert. Komponenten dürfen Leerzeichen enthalten, Labels nicht.
               </p>
               {#each selectedProjects as p (p.key)}
-                {@const chosen = projectLabels(p.key)}
-                {@const suggestions = (labelSuggestions[p.key] ?? []).filter((l) => !chosen.includes(l))}
-                <div class="label-row">
+                {@const filter = projectFilter(p.key)}
+                <div class="filter-row">
                   <div class="label-project">
                     <span class="dot" style="background:{store.color(p.key)}"></span>
                     <span class="mono key">{p.key}</span>
                     <span class="ellipsis faint">{p.name}</span>
                   </div>
                   <div class="grow">
-                    {#if chosen.length}
-                      <div class="chips">
-                        {#each chosen as l (l)}
-                          <span class="chip">
-                            <span>{l}</span>
-                            <button type="button" onclick={() => removeLabel(p.key, l)} aria-label="Entfernen"><Icon name="x" size={12} /></button>
-                          </span>
-                        {/each}
+                    {#each filterKinds as [kind, title] (kind)}
+                      {@const id = fid(kind, p.key)}
+                      {@const picked = chosenValues(kind, p.key)}
+                      {@const suggestions = (filterSuggestions[id] ?? []).filter((v) => !picked.includes(v))}
+                      <div class="filter-kind">
+                        <span class="kind-title">{title}</span>
+                        <div class="grow">
+                          {#if picked.length}
+                            <div class="chips">
+                              {#each picked as v (v)}
+                                <span class="chip">
+                                  <span>{v}</span>
+                                  <button type="button" onclick={() => removeValue(kind, p.key, v)} aria-label="Entfernen"><Icon name="x" size={12} /></button>
+                                </span>
+                              {/each}
+                            </div>
+                          {/if}
+                          <div class="search row">
+                            <Icon name="search" size={15} />
+                            <input
+                              type="search"
+                              placeholder={kind === "components" ? `Komponente von ${p.key} wählen oder eingeben …` : `Label für ${p.key} suchen oder eingeben …`}
+                              value={filterQuery[id] ?? ""}
+                              oninput={(e) => onFilterQuery(kind, p.key, (e.target as HTMLInputElement).value)}
+                              onkeydown={(e) => onFilterKey(e, kind, p.key)}
+                              onfocus={() => onFilterFocus(kind, p.key)}
+                              onblur={() => onFilterBlur(kind, p.key)}
+                            />
+                          </div>
+                          {#if (filterFocus[id] || (filterQuery[id] ?? "").trim()) && suggestions.length}
+                            <ul class="list">
+                              {#each suggestions as v (v)}
+                                <li>
+                                  <label class="row">
+                                    <input type="checkbox" checked={false} onchange={() => toggleValue(kind, p.key, v)} />
+                                    <span class="grow">{v}</span>
+                                  </label>
+                                </li>
+                              {/each}
+                            </ul>
+                          {/if}
+                        </div>
                       </div>
-                    {/if}
-                    <div class="search row">
-                      <Icon name="search" size={15} />
-                      <input
-                        type="search"
-                        placeholder="Label für {p.key} suchen oder eingeben, Enter fügt hinzu …"
-                        value={labelQuery[p.key] ?? ""}
-                        oninput={(e) => onLabelQuery(p.key, (e.target as HTMLInputElement).value)}
-                        onkeydown={(e) => onLabelKey(e, p.key)}
-                        onfocus={() => onLabelFocus(p.key)}
-                        onblur={() => onLabelBlur(p.key)}
-                      />
-                    </div>
-                    {#if (labelFocus[p.key] || (labelQuery[p.key] ?? "").trim()) && suggestions.length}
-                      <ul class="list">
-                        {#each suggestions as l (l)}
-                          <li>
-                            <label class="row">
-                              <input type="checkbox" checked={false} onchange={() => toggleLabel(p.key, l)} />
-                              <span class="grow">{l}</span>
-                            </label>
-                          </li>
-                        {/each}
-                      </ul>
+                    {/each}
+                    {#if filter.labels.length && filter.components.length}
+                      <label class="row match-mode">
+                        <span>Ein Ticket muss</span>
+                        <select value={filter.matchAll ? "all" : "any"} onchange={(e) => setFilter(p.key, { matchAll: (e.target as HTMLSelectElement).value === "all" })}>
+                          <option value="all">Komponente und Label</option>
+                          <option value="any">Komponente oder Label</option>
+                        </select>
+                        <span>erfüllen.</span>
+                      </label>
                     {/if}
                   </div>
                 </div>
@@ -524,7 +568,7 @@
             <div class="field">
               <label for="jql">Zusätzliche JQL-Bedingung (optional)</label>
               <input id="jql" type="text" placeholder='z. B. labels = "Team-A" AND priority = High' bind:value={draft.selection.extraJql} oninput={change} />
-              <p class="hint">Eine vollständige JQL-Bedingung, die an alle gewählten Projekte angehängt wird. Labels für ein einzelnes Projekt trägst du oben unter „Labels je Projekt“ ein.</p>
+              <p class="hint">Eine vollständige JQL-Bedingung, die an alle gewählten Projekte angehängt wird. Komponenten oder Labels für ein einzelnes Projekt trägst du oben unter „Filter je Projekt“ ein.</p>
             </div>
           </section>
         {/if}
@@ -844,20 +888,20 @@
     gap: 6px;
     margin-bottom: 10px;
   }
-  .label-row {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
+  .filter-row {
+    display: block;
     padding: 10px 0;
     border-top: 1px solid var(--border);
+  }
+  .filter-row > .grow {
+    min-width: 0;
   }
   .label-project {
     display: flex;
     align-items: center;
     gap: 6px;
-    width: 180px;
-    flex-shrink: 0;
-    padding-top: 6px;
+    min-width: 0;
+    margin-bottom: 8px;
   }
   .label-project .key {
     font-weight: 600;
@@ -867,6 +911,28 @@
     height: 9px;
     border-radius: 50%;
     flex-shrink: 0;
+  }
+  .filter-kind {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .filter-kind > .grow {
+    min-width: 0;
+  }
+  .kind-title {
+    width: 95px;
+    flex-shrink: 0;
+    padding-top: 6px;
+    font-size: 12.5px;
+    color: var(--text-2);
+  }
+  .match-mode {
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--text-2);
+    margin-top: 4px;
   }
   .chip {
     display: inline-flex;
@@ -907,6 +973,7 @@
     border: none;
     background: transparent;
     flex: 1;
+    min-width: 0;
     box-shadow: none !important;
     color: var(--text);
     padding: 6px 0;
