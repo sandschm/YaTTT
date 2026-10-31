@@ -1,6 +1,6 @@
 # Änderungen
 
-## Unveröffentlicht
+## 0.2.1 – 2026-10-31
 
 - Zusätzliche JQL-Bedingung: Ein einzelnes Wort ohne Operator (z. B. „Tim“) wird beim Speichern
   abgewiesen, mit Hinweis auf `labels = Tim` und die Label-Zuordnung je Projekt. Schlägt die
