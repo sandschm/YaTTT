@@ -111,11 +111,9 @@ impl AppState {
     }
 
     pub fn jira(&self) -> Result<Arc<JiraClient>, String> {
-        self.jira
-            .read()
-            .unwrap()
-            .clone()
-            .ok_or_else(|| "Nicht bei Jira angemeldet".to_string())
+        self.jira.read().unwrap().clone().ok_or_else(|| {
+            yattt_core::tr!("Nicht bei Jira angemeldet", "Not signed in to Jira").to_string()
+        })
     }
 
     pub fn jira_opt(&self) -> Option<Arc<JiraClient>> {
@@ -158,7 +156,11 @@ impl AppState {
 
     pub fn mark_auth_expired(&self) {
         self.clear_session(Some(
-            "Die Jira-Sitzung ist abgelaufen. Bitte erneut anmelden.".into(),
+            yattt_core::tr!(
+                "Die Jira-Sitzung ist abgelaufen. Bitte erneut anmelden.",
+                "The Jira session has expired. Please sign in again."
+            )
+            .into(),
         ));
     }
 

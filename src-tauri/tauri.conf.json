@@ -30,8 +30,8 @@
     "active": true,
     "targets": "all",
     "category": "Productivity",
-    "shortDescription": "Zeiterfassung an Jira-Tickets",
-    "longDescription": "YaTTT erfasst Arbeitszeiten an Jira-Tickets, speichert sie lokal und bucht sie als Worklogs nach Jira/Tempo.",
+    "shortDescription": "Time tracking on Jira tickets",
+    "longDescription": "YaTTT tracks working time on Jira tickets, stores it locally and books it as worklogs to Jira/Tempo.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

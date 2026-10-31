@@ -54,9 +54,15 @@ unsafe extern "system" fn subclass_proc(
         if let Some((app, state)) = CTX.get() {
             state.write_heartbeat(Utc::now());
             if state.running_count() > 0 && !state.exit_confirmed() {
-                let reason: Vec<u16> = "Ein Timer läuft noch – bitte in YaTTT entscheiden.\0"
-                    .encode_utf16()
-                    .collect();
+                let reason: Vec<u16> = format!(
+                    "{}\0",
+                    yattt_core::tr!(
+                        "Ein Timer läuft noch – bitte in YaTTT entscheiden.",
+                        "A timer is still running – please decide in YaTTT."
+                    )
+                )
+                .encode_utf16()
+                .collect();
                 let _ = ShutdownBlockReasonCreate(hwnd, PCWSTR(reason.as_ptr()));
                 state.shutdown_prompt_open.store(true, Ordering::SeqCst);
                 crate::tray::show_main_window(app);

@@ -1,258 +1,258 @@
-# YaTTT – Plan und Architektur
+# YaTTT – Plan and Architecture
 
-YaTTT („Yet another Time Tracking Tool“) ist eine Desktop-App zur Zeiterfassung an Jira-Tickets
-mit Buchung nach Jira/Tempo und lokaler Sicherungskopie. Funktionsumfang orientiert sich an Tyme
-(siehe [TYME_ANALYSE.md](TYME_ANALYSE.md)). Zielplattformen: macOS, Windows, Linux.
+YaTTT ("Yet another Time Tracking Tool") is a desktop app for tracking time on Jira tickets,
+with booking to Jira/Tempo and a local backup copy. The feature set is modeled on Tyme
+(see [TYME_ANALYSIS.md](TYME_ANALYSIS.md)). Target platforms: macOS, Windows, Linux.
 
-## 1. Anforderungen (aus der Aufgabenstellung)
+## 1. Requirements (from the task description)
 
-| # | Anforderung | Lösung |
+| # | Requirement | Solution |
 |---|---|---|
-| A1 | Zeiterfassung an Jira-Tickets, Tempo vorhanden | Worklogs über Jira-REST (Tempo synchronisiert automatisch) oder Tempo-API |
-| A2 | Zusätzlich lokale Speicherung | SQLite im Nutzer-Datenverzeichnis, tägliches Backup |
-| A3 | Funktionsumfang wie Tyme | Siehe Feature-Matrix in TYME_ANALYSE.md |
-| A4 | Alle Aufgaben und Projekte aus Jira | Kein lokales Anlegen von Projekten/Aufgaben; Tickets werden gecacht |
-| A5 | Einstellungen: Jira-URL | Einstellungsseite „Verbindung“ |
-| A6 | Login/Passwort beim Login abfragen, sicher lokal speichern | Anmeldung im eingebetteten Browserfenster (SSO/2FA) oder Formular; Session/Token im OS-Schlüsselbund (`keyring`), nie im Klartext in Dateien |
-| A7 | Auswahl von Projekten und Sprints, mit Suche | Einstellungen „Projekte & Sprints“ mit Suchfeldern |
-| A8 | Tickettypen herausfiltern (z. B. Epics) | Einstellung „Ausgeblendete Tickettypen“ |
-| A9 | Tickets des aktuellen Sprints aller gewählten Projekte immer laden | JQL `project in (…) AND sprint in openSprints()` zusätzlich zu gewählten Sprints |
-| A10 | Regelmäßige Aktualisierung, Intervall konfigurierbar, manuell anstoßbar | Scheduler im Rust-Backend, Refresh-Button |
-| A11 | Herunterfahren/Neustart bei laufendem Timer: Nachfrage stoppen/weiterlaufen | Native Hooks (macOS `applicationShouldTerminate:`, Windows `WM_QUERYENDSESSION`), überall zusätzlich Wiederherstellungsdialog beim nächsten Start |
-| A12 | Rust, macOS/Windows/Linux | Tauri 2 (Rust-Backend) + Rust-Core-Crate; UI als Svelte/TypeScript |
-| A13 | Release-Pipeline auf GitHub | GitHub Actions: CI (Test/Lint) und Release (tauri-action, 3 Plattformen) |
-| A14 | API-Zugriff ohne API-Token, SSO und 2FA | Browser-Session-Login in Webview, Cookies werden übernommen; siehe Abschnitt 4 |
+| A1 | Time tracking on Jira tickets, Tempo is in use | Worklogs via Jira REST (Tempo syncs automatically) or via the Tempo API |
+| A2 | Additional local storage | SQLite in the user data directory, daily backup |
+| A3 | Feature set like Tyme | See the feature matrix in TYME_ANALYSIS.md |
+| A4 | All tasks and projects come from Jira | No local creation of projects/tasks; tickets are cached |
+| A5 | Settings: Jira URL | Settings page "Connection" |
+| A6 | Ask for login/password at login, store them securely locally | Login in an embedded browser window (SSO/2FA) or via a form; session/token in the OS keychain (`keyring`), never in plain text in files |
+| A7 | Selection of projects and sprints, with search | Settings "Projects & Sprints" with search fields |
+| A8 | Filter out ticket types (e.g. epics) | Setting "Hidden ticket types" |
+| A9 | Always load the tickets of the current sprint of all selected projects | JQL `project in (…) AND sprint in openSprints()` in addition to the selected sprints |
+| A10 | Regular refresh, configurable interval, can be triggered manually | Scheduler in the Rust backend, refresh button |
+| A11 | Shutdown/restart while a timer is running: ask whether to stop or keep running | Native hooks (macOS `applicationShouldTerminate:`, Windows `WM_QUERYENDSESSION`), plus a restore prompt on the next start on all platforms |
+| A12 | Rust, macOS/Windows/Linux | Tauri 2 (Rust backend) + Rust core crate; UI in Svelte/TypeScript |
+| A13 | Release pipeline on GitHub | GitHub Actions: CI (test/lint) and release (tauri-action, 3 platforms) |
+| A14 | API access without an API token, with SSO and 2FA | Browser session login in a webview, cookies are taken over; see section 4 |
 
-## 2. Technologieentscheidung
+## 2. Technology decision
 
-### Warum Tauri 2 und nicht ein reines Rust-GUI (egui/iced/Slint)?
+### Why Tauri 2 and not a pure Rust GUI (egui/iced/Slint)?
 
-Die Anforderung A14 (SSO + zweiter Faktor, kein API-Token) ist nur erfüllbar, wenn der Nutzer
-den echten Jira-Login-Dialog (inkl. Weiterleitung zum Identity Provider und 2FA) durchlaufen kann.
-Dafür braucht die App einen eingebetteten Browser, aus dem sie anschließend die Session-Cookies
-übernimmt. Tauri 2 bietet genau das: `Webview::cookies_for_url()` liefert auch HttpOnly-Cookies
-auf allen drei Plattformen (WKWebView, WebView2, WebKitGTK). Reine Rust-GUIs haben keinen
-eingebetteten Browser; ein Login würde dort nur mit API-Token/PAT funktionieren.
+Requirement A14 (SSO + second factor, no API token) can only be met if the user can go through
+the real Jira login dialog (including the redirect to the identity provider and 2FA).
+For that, the app needs an embedded browser from which it can then take over the session cookies.
+Tauri 2 offers exactly that: `Webview::cookies_for_url()` also returns HttpOnly cookies
+on all three platforms (WKWebView, WebView2, WebKitGTK). Pure Rust GUIs have no
+embedded browser; a login there would only work with an API token/PAT.
 
-Konsequenz: Die gesamte Fachlogik (Jira-Client, Tempo, Timer, Speicherung, Export, Idle, Scheduler,
-Shutdown-Hooks) liegt in Rust. Die Oberfläche ist HTML/Svelte/TypeScript und spricht ausschließlich
-über Tauri-Commands und -Events mit dem Backend. Die Rust-Logik ist in einem eigenen Crate
-(`yattt-core`) ohne Tauri-Abhängigkeit und daher mit `cargo test` testbar.
+Consequence: all business logic (Jira client, Tempo, timer, storage, export, idle, scheduler,
+shutdown hooks) lives in Rust. The UI is HTML/Svelte/TypeScript and talks to the backend
+exclusively through Tauri commands and events. The Rust logic lives in its own crate
+(`yattt-core`) without a Tauri dependency and is therefore testable with `cargo test`.
 
-Alternative, bewusst nicht gewählt: Leptos/Yew als Rust→WASM-Frontend. Vorteil: 100 % Rust.
-Nachteil: deutlich langsamere Entwicklung und Toolchain-Komplexität (Trunk, wasm32) bei einer
-UI mit vielen Ansichten. Kann später ersetzt werden, da die Schnittstelle (Commands/Events) stabil ist.
+Alternative, deliberately not chosen: Leptos/Yew as a Rust→WASM frontend. Advantage: 100% Rust.
+Disadvantage: considerably slower development and toolchain complexity (Trunk, wasm32) for a
+UI with many views. It can be replaced later, since the interface (commands/events) is stable.
 
 ### Stack
 
-| Bereich | Wahl |
+| Area | Choice |
 |---|---|
-| App-Rahmen | Tauri 2 (tray-icon, Menüs, Webview-Login) |
-| Backend-Logik | Rust, Crate `yattt-core` |
-| HTTP | `reqwest` (rustls), Cookie-Header manuell aus gespeicherter Session |
-| Speicherung | `rusqlite` (bundled), Migrationen im Code |
-| Einstellungen | JSON im Konfigurationsverzeichnis (`dirs`) |
-| Geheimnisse | `keyring` (macOS Keychain, Windows Credential Manager, Linux Secret Service) |
-| Idle-Erkennung | `user-idle` (CGEventSource / GetLastInputInfo / X11), Wayland: Zeitsprung-Watchdog |
-| Scheduler | `tokio` Tasks im Tauri-Runtime |
-| Frontend | Svelte 5, TypeScript, Vite; Diagramme als eigene SVG-Komponenten |
-| Tauri-Plugins | notification, dialog, opener, autostart, global-shortcut, single-instance, store (Fensterzustand) |
-| Tests | `cargo test` (Unit), `wiremock` (Jira-Client gegen Mock-Server), `vitest` (Frontend-Helfer) |
+| App shell | Tauri 2 (tray icon, menus, webview login) |
+| Backend logic | Rust, crate `yattt-core` |
+| HTTP | `reqwest` (rustls), cookie header set manually from the stored session |
+| Storage | `rusqlite` (bundled), migrations in code |
+| Settings | JSON in the configuration directory (`dirs`) |
+| Secrets | `keyring` (macOS Keychain, Windows Credential Manager, Linux Secret Service) |
+| Idle detection | `user-idle` (CGEventSource / GetLastInputInfo / X11), Wayland: time-jump watchdog |
+| Scheduler | `tokio` tasks in the Tauri runtime |
+| Frontend | Svelte 5, TypeScript, Vite; charts as custom SVG components |
+| Tauri plugins | notification, dialog, opener, autostart, global-shortcut, single-instance, store (window state) |
+| Tests | `cargo test` (unit), `wiremock` (Jira client against a mock server), `vitest` (frontend helpers) |
 | CI/CD | GitHub Actions, `tauri-apps/tauri-action` |
 
-## 3. Architektur
+## 3. Architecture
 
 ```
-┌──────────────────────────── Tauri-App (src-tauri) ─────────────────────────────┐
-│  commands.rs  – dünne Tauri-Commands, mappen auf yattt-core                     │
-│  events       – timer-tick, issues-updated, sync-status, auth-expired, …        │
-│  tray.rs      – Tray-Icon/-Menü, Titel mit laufender Zeit                        │
-│  login.rs     – Login-Webview öffnen, Cookies pollen, Session prüfen             │
+┌──────────────────────────── Tauri app (src-tauri) ───────────────────────────────┐
+│  commands.rs  – thin Tauri commands, mapped onto yattt-core                      │
+│  events       – timer-tick, issues-updated, sync-status, auth-expired, …         │
+│  tray.rs      – tray icon/menu, title with the running time                      │
+│  login.rs     – open login webview, poll cookies, verify session                 │
 │  shutdown/    – macOS applicationShouldTerminate:, Windows WM_QUERYENDSESSION    │
-│  scheduler.rs – Refresh-Intervall, Idle-Watchdog, Erinnerungen, Sync-Retry       │
-└────────────────────────────────────┬───────────────────────────────────────────┘
-                                     │ Rust-API
-┌────────────────────────────── yattt-core ──────────────────────────────────────┐
-│  settings   – Settings-Struct, Laden/Speichern, Defaults, Validierung            │
-│  auth       – AuthMethod (Session-Cookies, Basic, PAT, ApiToken), SecretStore    │
+│  scheduler.rs – refresh interval, idle watchdog, reminders, sync retry           │
+└────────────────────────────────────┬─────────────────────────────────────────────┘
+                                     │ Rust API
+┌────────────────────────────── yattt-core ────────────────────────────────────────┐
+│  settings   – Settings struct, load/save, defaults, validation                   │
+│  auth       – AuthMethod (session cookies, Basic, PAT, ApiToken), SecretStore    │
 │  jira       – JiraClient: serverInfo, myself, projects, boards, sprints, search, │
-│               issue types, worklog create/update/delete; Cloud/DC-Unterschiede   │
+│               issue types, worklog create/update/delete; Cloud/DC differences    │
 │  tempo      – TempoClient (DC: /rest/tempo-timesheets/4, Cloud: api.tempo.io/4)  │
-│  storage    – SQLite: projects, issues, time_entries, sync_queue, meta; Backups  │
-│  timer      – TimerEngine: start/stop/switch, Idle-Handling, Rundung             │
-│  sync       – Worklog-Buchung, Retry, Import vorhandener Worklogs                │
-│  export     – CSV/JSON, Stundenzettel-Daten (Tage, Pausen, Soll/Ist)             │
-│  stats      – Aggregationen für Statistikansicht                                 │
-│  idle       – Plattformabstraktion für Idle-Zeit                                 │
-└────────────────────────────────────────────────────────────────────────────────┘
+│  storage    – SQLite: projects, issues, time_entries, sync_queue, meta; backups  │
+│  timer      – TimerEngine: start/stop/switch, idle handling, rounding            │
+│  sync       – worklog booking, retry, import of existing worklogs                │
+│  export     – CSV/JSON, timesheet data (days, breaks, target/actual)             │
+│  stats      – aggregations for the Statistics view                               │
+│  idle       – platform abstraction for idle time                                 │
+└──────────────────────────────────────────────────────────────────────────────────┘
                                      ▲ Tauri invoke/listen
-┌────────────────────────── Frontend (src, Svelte) ──────────────────────────────┐
-│  Ansichten: Timer-Leiste · Tickets · Zeiten (Liste/Woche) · Statistik ·          │
-│             Einstellungen (Verbindung, Projekte & Sprints, Filter, Zeit, Verhalten)│
-│  Dialoge:   Login, Idle-Rückkehr, Beenden mit laufendem Timer, Wiederherstellung  │
-└────────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────── Frontend (src, Svelte) ────────────────────────────────┐
+│  Views:   timer bar · Tickets · Times (list/week) · Statistics ·                 │
+│           Settings (Connection, Projects & Sprints, Filter, Time, Behavior)      │
+│  Dialogs: login, idle return, quit with running timer, restore                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Datenmodell (SQLite)
+### Data model (SQLite)
 
 - `projects(key PK, id, name, avatar_url, color, selected, billable_default, sort)`
 - `sprints(id PK, board_id, name, state, start_date, end_date, project_key, selected)`
 - `issues(key PK, id, project_key, summary, issue_type, issue_type_id, status, status_category, parent_key, epic_key, sprint_id, assignee, due_date, original_estimate_s, remaining_estimate_s, time_spent_s, updated, url, last_seen, favorite)`
 - `time_entries(id PK, issue_key, started_at, ended_at NULL, note, billable, rounded_seconds NULL, sync_state, jira_worklog_id, tempo_worklog_id, sync_error, created_at, updated_at, deleted_at)`
 - `sync_queue(id, entry_id, action, attempts, next_attempt_at, last_error)`
-- `meta(key, value)` – Schema-Version, letzte Aktualisierung, letzter sauberer Exit, laufende Timer beim Exit
+- `meta(key, value)` – schema version, last refresh, last clean exit, timers running at exit
 
-Geheimnisse (Cookies, Tokens, Passwort bei Basic-Auth) liegen ausschließlich im Schlüsselbund
-unter dem Service `de.yattt.app`, Account = Jira-URL.
+Secrets (cookies, tokens, the password for Basic auth) are stored exclusively in the keychain
+under the service `de.yattt.app`, account = Jira URL.
 
-### Timer-Semantik
+### Timer semantics
 
-- Ein Zeiteintrag mit `ended_at = NULL` ist ein laufender Timer. Dadurch überlebt der Timer App-Abstürze,
-  Neustarts und Shutdown: Beim nächsten Start findet die App offene Einträge und fragt nach
-  („bis jetzt weiterlaufen lassen“ / „zum Zeitpunkt des Beendens stoppen“ / „zum Zeitpunkt X stoppen“).
-- `meta.last_heartbeat` wird alle 15 s geschrieben. Beim Start ist damit der Zeitpunkt des letzten
-  Lebenszeichens bekannt, falls der Rechner ohne Nachfrage ausging.
-- Einzel-Timer-Modus: Start eines Timers stoppt den laufenden. Mehrfach-Timer optional.
-- Idle: Bei Idle > Schwellwert merkt sich das Backend den Idle-Beginn; nach Rückkehr Dialog mit
-  drei Optionen. Sleep wird erkannt, wenn der Tick-Abstand den erwarteten Takt deutlich überschreitet.
-- Rundung wird nur bei der Buchung angewandt; lokale Daten bleiben sekundengenau.
+- A time entry with `ended_at = NULL` is a running timer. This lets the timer survive app crashes,
+  restarts and shutdown: on the next start, the app finds open entries and asks what to do
+  ("keep running until now" / "stop at the time of quitting" / "stop at time X").
+- `meta.last_heartbeat` is written every 15 s. On start, the time of the last sign of life
+  is therefore known in case the machine went off without asking.
+- Single-timer mode: starting a timer stops the running one. Multiple timers are optional.
+- Idle: once idle time exceeds the threshold, the backend remembers when idling began; on return, a dialog
+  with three options is shown. Sleep is detected when the tick interval clearly exceeds the expected cadence.
+- Rounding is applied only when booking; local data stays accurate to the second.
 
-### Shutdown/Neustart/Beenden
+### Shutdown/restart/quit
 
-| Plattform | Mechanismus | Verhalten |
+| Platform | Mechanism | Behavior |
 |---|---|---|
-| macOS | Eigene Implementierung von `applicationShouldTerminate:` am tao-App-Delegate (zur Laufzeit per `class_addMethod`), da tao die Methode nicht implementiert | Bei laufendem Timer nativer `NSAlert` („Timer stoppen“ / „Weiterlaufen lassen“), danach `NSTerminateNow`; ohne Timer sofort beenden |
-| Windows | Subclassing des Hauptfensters, `WM_QUERYENDSESSION` + `ShutdownBlockReasonCreate` | `MessageBox` mit denselben Optionen, dann Rückgabe `TRUE` |
-| Linux | Kein zuverlässiger Dialog während des Shutdowns (logind-Delay-Lock max. 5 s) | Zustand ist durch Heartbeat gesichert; Nachfrage beim nächsten Start |
-| Alle | `RunEvent::ExitRequested` (Cmd+Q, Tray „Beenden“) | In-App-Dialog „Timer stoppen und beenden“ / „Weiterlaufen lassen und beenden“ / „Abbrechen“ |
-| Alle | Fenster schließen | Minimiert in den Tray (Einstellung) |
+| macOS | Custom implementation of `applicationShouldTerminate:` on the tao app delegate (added at runtime via `class_addMethod`), since tao does not implement the method | With a running timer, a native `NSAlert` ("Stop timer" / "Keep running"), then `NSTerminateNow`; without a timer, quit immediately |
+| Windows | Subclassing the main window, `WM_QUERYENDSESSION` + `ShutdownBlockReasonCreate` | `MessageBox` with the same options, then return `TRUE` |
+| Linux | No reliable dialog during shutdown (logind delay lock max. 5 s) | State is secured by the heartbeat; prompt on the next start |
+| All | `RunEvent::ExitRequested` (Cmd+Q, tray "Quit") | In-app dialog "Stop timer and quit" / "Keep running and quit" / "Cancel" |
+| All | Closing the window | Minimizes to the tray (setting) |
 
-„Weiterlaufen lassen“ bedeutet: der Eintrag bleibt offen und zählt weiter; beim nächsten Start
-läuft der Timer sichtbar weiter, mit Hinweis.
+"Keep running" means: the entry stays open and keeps counting; on the next start,
+the timer visibly continues to run, with a notice.
 
-## 4. Jira-Zugriff ohne API-Token, mit SSO und 2FA
+## 4. Jira access without an API token, with SSO and 2FA
 
-### Befund
+### Finding
 
-- **Jira Cloud:** Basic-Auth mit Passwort ist seit 2019 abgeschaltet; es bleiben API-Token, OAuth 2.0 (3LO)
-  oder die Browser-Session (`cloud.session.token`, HttpOnly). Der Login läuft immer über
-  `id.atlassian.com`/`auth.atlassian.com`; SSO (SAML via Atlassian Guard) und 2FA passieren dort.
-  Test: `https://jira.atlassian.com/login.jsp` leitet auf `auth.atlassian.com/authorize?...` weiter.
-  Atlassian bezeichnet Cookie-Auth für externe Clients als „deprecated“, der Browser selbst nutzt aber
-  genau diese Session für alle REST-Aufrufe. Eine App, die den Browser-Login einbettet, verhält sich wie der Browser.
-- **Jira Data Center/Server:** Session über `POST /rest/auth/1/session` (Benutzername/Passwort) liefert `JSESSIONID`.
-  Mit SAML/Crowd-SSO und 2FA-Plugins funktioniert dieser Weg häufig nicht (Login wird zum IdP umgeleitet).
-  Der Browser-Login setzt nach erfolgreichem SSO/2FA `JSESSIONID` (und ggf. `seraph.rememberme.cookie`),
-  die für REST-Aufrufe gültig sind. PATs (ab 8.14) sind eine saubere Alternative, sind aber Tokens.
-- Getestet gegen öffentliche Instanzen (anonym): ASF Jira (DC 10.3) liefert `serverInfo`, `project`, `search`;
-  `myself` und `agile/board` verlangen Authentifizierung (401). Jira Cloud (`jira.atlassian.com`) verlangt für
-  REST ohne Session einen Login (302). Die API-Formen für Cloud (`/rest/api/3/search/jql`, `nextPageToken`)
-  und DC (`/rest/api/2/search`, `startAt`) unterscheiden sich und werden im Client abstrahiert.
+- **Jira Cloud:** Basic auth with a password has been disabled since 2019; what remains is API tokens, OAuth 2.0 (3LO)
+  or the browser session (`cloud.session.token`, HttpOnly). Login always goes through
+  `id.atlassian.com`/`auth.atlassian.com`; SSO (SAML via Atlassian Guard) and 2FA happen there.
+  Test: `https://jira.atlassian.com/login.jsp` redirects to `auth.atlassian.com/authorize?...`.
+  Atlassian calls cookie auth for external clients "deprecated", but the browser itself uses
+  exactly this session for all REST calls. An app that embeds the browser login behaves like the browser.
+- **Jira Data Center/Server:** A session via `POST /rest/auth/1/session` (username/password) returns a `JSESSIONID`.
+  With SAML/Crowd SSO and 2FA plugins, this route often does not work (the login is redirected to the IdP).
+  After successful SSO/2FA, the browser login sets `JSESSIONID` (and possibly `seraph.rememberme.cookie`),
+  which are valid for REST calls. PATs (from 8.14) are a clean alternative, but they are tokens.
+- Tested against public instances (anonymously): ASF Jira (DC 10.3) returns `serverInfo`, `project`, `search`;
+  `myself` and `agile/board` require authentication (401). Jira Cloud (`jira.atlassian.com`) requires a
+  login for REST without a session (302). The API shapes for Cloud (`/rest/api/3/search/jql`, `nextPageToken`)
+  and DC (`/rest/api/2/search`, `startAt`) differ and are abstracted in the client.
 
-### Lösung: Browser-Session-Login (Standard)
+### Solution: browser session login (default)
 
-1. Nutzer gibt Jira-URL ein und klickt „Anmelden“.
-2. Die App öffnet ein Tauri-Webview-Fenster mit `<jira-url>/login.jsp?os_destination=/rest/api/2/myself`
-   (Cloud: Weiterleitung zu Atlassian-ID, dann IdP, dann 2FA, zurück zur Site).
-3. Das Backend prüft alle 1,5 s: `cookies_for_url(jira-url)` lesen, mit diesen Cookies
-   `GET /rest/api/2/myself` aufrufen. Antwort 200 → Login erfolgreich.
-4. Cookies (Name, Wert, Domain, Pfad, Ablauf) werden als Session im Schlüsselbund gespeichert, das Fenster schließt sich.
-5. Alle REST-Aufrufe senden `Cookie: …` und `X-Atlassian-Token: no-check` (XSRF-Ausnahme für
-   Nicht-Formular-Requests). Bei 401/403 wird `auth-expired` gemeldet und „Erneut anmelden“ angeboten;
-   die Session-Cookies im Webview-Profil bleiben erhalten, sodass die Neuanmeldung oft ohne erneute
-   Passworteingabe gelingt.
+1. The user enters the Jira URL and clicks "Sign in".
+2. The app opens a Tauri webview window at `<jira-url>/login.jsp?os_destination=/rest/api/2/myself`
+   (Cloud: redirect to Atlassian ID, then the IdP, then 2FA, back to the site).
+3. Every 1.5 s, the backend reads `cookies_for_url(jira-url)` and calls
+   `GET /rest/api/2/myself` with these cookies. Response 200 → login successful.
+4. The cookies (name, value, domain, path, expiry) are stored as a session in the keychain, and the window closes.
+5. All REST calls send `Cookie: …` and `X-Atlassian-Token: no-check` (XSRF exemption for
+   non-form requests). On 401/403, `auth-expired` is reported and "Sign in again" is offered;
+   the session cookies in the webview profile are kept, so signing in again often succeeds without
+   entering the password again.
 
-Rückfalloptionen in den Einstellungen: Benutzername/Passwort (DC, `/rest/auth/1/session` bzw. Basic),
-Personal Access Token (DC), E-Mail + API-Token (Cloud). Passwort wird nur im Schlüsselbund gespeichert.
+Fallback options in the settings: username/password (DC, `/rest/auth/1/session` or Basic),
+Personal Access Token (DC), email + API token (Cloud). The password is stored only in the keychain.
 
-### Teststrategie für Auth
+### Test strategy for auth
 
-- Unit/Integrationstests des Clients gegen `wiremock` (Session-Cookie, 401-Handling, Cloud/DC-Pagination).
-- Manueller Test der Webview-Cookie-Übernahme gegen `issues.apache.org/jira` (setzt `JSESSIONID` auch anonym).
-- Der echte SSO/2FA-Test ist nur gegen die Jira-Instanz des Teams möglich (Checkliste in [JIRA_AUTH.md](JIRA_AUTH.md)).
+- Unit/integration tests of the client against `wiremock` (session cookie, 401 handling, Cloud/DC pagination).
+- Manual test of the webview cookie takeover against `issues.apache.org/jira` (sets `JSESSIONID` even anonymously).
+- The real SSO/2FA test is only possible against the team's Jira instance (checklist in [JIRA_AUTH.md](JIRA_AUTH.md)).
 
 ## 5. Tempo
 
-- **Standard:** Worklog über `POST /rest/api/2/issue/{key}/worklog` (`started`, `timeSpentSeconds`, `comment`).
-  Tempo Cloud übernimmt Jira-Worklogs per Webhook, Tempo DC speichert Worklogs ohnehin in Jira.
-- **Tempo DC direkt (optional):** `POST /rest/tempo-timesheets/4/worklogs` mit derselben Jira-Session
+- **Default:** worklog via `POST /rest/api/2/issue/{key}/worklog` (`started`, `timeSpentSeconds`, `comment`).
+  Tempo Cloud picks up Jira worklogs via webhook; Tempo DC stores worklogs in Jira anyway.
+- **Tempo DC directly (optional):** `POST /rest/tempo-timesheets/4/worklogs` with the same Jira session
   (`originTaskId`, `started`, `timeSpentSeconds`, `billableSeconds`, `worker`, `comment`).
-- **Tempo Cloud direkt (optional):** `POST https://api.tempo.io/4/worklogs` mit Tempo-Token
+- **Tempo Cloud directly (optional):** `POST https://api.tempo.io/4/worklogs` with a Tempo token
   (`issueId`, `authorAccountId`, `startDate`, `startTime`, `timeSpentSeconds`, `billableSeconds`).
-- Jeder Eintrag merkt sich `jira_worklog_id`/`tempo_worklog_id`; Änderungen am Eintrag führen zu
-  `PUT`, Löschen zu `DELETE`. Fehler landen in der `sync_queue` mit Backoff.
+- Each entry remembers its `jira_worklog_id`/`tempo_worklog_id`; changes to the entry lead to a
+  `PUT`, deletion to a `DELETE`. Failures end up in the `sync_queue` with backoff.
 
-## 6. Oberfläche
+## 6. User interface
 
-- **Timer-Leiste:** aktueller Timer (Ticket, Zeit, Notiz), Stop, Tagessumme, Schnellstart-Suche.
-- **Tickets:** Gruppen pro Projekt (Farbe), Sprint-Badge, Typ-Icon, Status, Soll/Ist-Balken,
-  Start-Button, Favoriten (max. 15, Hinweisdialog darüber), Filterleiste (Sprint, Typ, Komponente, Label, Status, nur meine), Suche, Refresh mit Zeitstempel.
-- **Tray:** Favoriten als Check-Einträge; Klick startet bzw. stoppt den Timer, das Häkchen zeigt den laufenden.
-- **Filter je Projekt:** `selection.projectFilters` (Projekt → Komponenten, Labels, und/oder) ergänzt das JQL um
-  `(project not in (…) OR (project = X AND (component in (…) AND|OR labels in (…))))`, sodass nur das
-  betroffene Projekt gefiltert wird. Komponenten kommen aus `/rest/api/2/project/{key}/components`.
-- **Zeiten:** Tagesliste mit Einträgen und Tagessummen, Bearbeiten/Löschen, Buchungsstatus,
-  „Jetzt buchen“; Wochen-Timeline mit Blöcken; Pausen als Lücken.
-- **Statistik:** Zeitraumwahl; Kennzahlen (Soll/Ist, Über-/Unterstunden, Pausen, Billable-Anteil);
-  Balken pro Tag; Verteilung pro Projekt/Ticket; Heatmap.
-- **Einstellungen:** Verbindung (URL, Login-Methode, Status, Abmelden) · Projekte & Sprints (Suche,
-  Auswahl) · Filter (Tickettypen, erledigte ausblenden) · Zeit (Rundung, Arbeitszeiten pro Wochentag,
-  Wochenstart, Zeitformat, kurze Einträge) · Verhalten (Intervall, Idle-Schwelle, Mehrfach-Timer,
-  Autostart, in Tray minimieren, Benachrichtigungen, Notiz beim Stoppen, Buchen beim Stoppen) ·
-  Tempo (Modus, Token) · Export.
+- **Timer bar:** current timer (ticket, time, note), stop, daily total, quick-start search.
+- **Tickets:** groups per project (color), sprint badge, type icon, status, target/actual bar,
+  start button, favorites (max. 15, with a notice dialog beyond that), filter bar (sprint, type, component, label, status, only mine), search, refresh with timestamp.
+- **Tray:** favorites as check items; a click starts or stops the timer, the check mark shows the running one.
+- **Filter per project:** `selection.projectFilters` (project → components, labels, and/or) extends the JQL with
+  `(project not in (…) OR (project = X AND (component in (…) AND|OR labels in (…))))`, so that only the
+  affected project is filtered. Components come from `/rest/api/2/project/{key}/components`.
+- **Times:** daily list with entries and daily totals, edit/delete, booking status,
+  "Book now"; weekly timeline with blocks; breaks as gaps.
+- **Statistics:** period selection; key figures (target/actual, overtime/undertime, breaks, billable share);
+  bars per day; distribution per project/ticket; heatmap.
+- **Settings:** Connection (URL, login method, status, sign out) · Projects & Sprints (search,
+  selection) · Filter (ticket types, hide completed) · Time (rounding, working hours per weekday,
+  week start, time format, short entries) · Behavior (interval, idle threshold, multiple timers,
+  autostart, minimize to tray, notifications, note on stop, book on stop) ·
+  Tempo (mode, token) · Export.
 
-## 7. Meilensteine
+## 7. Milestones
 
-1. **M1 Grundgerüst:** Workspace, `yattt-core` mit Settings/Storage/Models, Tauri-Shell, Fenster, Tray.
-2. **M2 Jira:** Client (Cloud/DC), Login-Webview, Schlüsselbund, Projekte/Sprints/Issues laden, Scheduler.
-3. **M3 Zeiterfassung:** TimerEngine, Einträge, Idle/Sleep, Zeiten-Ansicht, Timer-Leiste, Hotkeys.
-4. **M4 Buchung:** Worklogs nach Jira/Tempo, Queue, Statusanzeige, Import vorhandener Worklogs.
-5. **M5 Komfort:** Statistik, Export, Erinnerungen, Shutdown-Hooks, Wiederherstellung.
-6. **M6 Auslieferung:** Tests, CI, Release-Pipeline, Dokumentation.
+1. **M1 Foundation:** workspace, `yattt-core` with settings/storage/models, Tauri shell, window, tray.
+2. **M2 Jira:** client (Cloud/DC), login webview, keychain, loading projects/sprints/issues, scheduler.
+3. **M3 Time tracking:** TimerEngine, entries, idle/sleep, Times view, timer bar, hotkeys.
+4. **M4 Booking:** worklogs to Jira/Tempo, queue, status display, import of existing worklogs.
+5. **M5 Convenience:** statistics, export, reminders, shutdown hooks, restore.
+6. **M6 Delivery:** tests, CI, release pipeline, documentation.
 
-## 8. Risiken und Gegenmaßnahmen
+## 8. Risks and mitigations
 
-| Risiko | Gegenmaßnahme |
+| Risk | Mitigation |
 |---|---|
-| Cookie-Login wird von Atlassian oder der Instanz blockiert (Captcha, WAF) | Fallback PAT/API-Token; Fehler klar anzeigen |
-| Session läuft ab (Cloud: einige Tage) | 401-Erkennung, Banner „Erneut anmelden“, Webview behält Browser-Session |
-| XSRF-Prüfung bei POST mit Cookie-Auth | `X-Atlassian-Token: no-check`, JSON-Content-Type, kein `Origin`-Header |
-| `Webview::cookies()` kann unter Windows in synchronen Commands blockieren | Nur `cookies_for_url` aus async Tasks aufrufen |
-| Tray/Hotkeys unter Wayland eingeschränkt | Dokumentieren; App bleibt ohne Tray nutzbar |
-| Idle-Erkennung unter Wayland nicht verfügbar | Zeitsprung-Watchdog bleibt aktiv, Idle optional abschaltbar |
-| Shutdown-Dialog unter Linux nicht möglich | Heartbeat + Nachfrage beim nächsten Start |
-| Cloud-Suche nutzt neue Pagination | Client erkennt `deploymentType` und wählt Endpunkt |
-| Code-Signing fehlt | Release ohne Signatur zunächst; Secrets für Signierung vorbereitet und dokumentiert |
+| Cookie login is blocked by Atlassian or the instance (captcha, WAF) | Fallback to PAT/API token; show errors clearly |
+| Session expires (Cloud: a few days) | 401 detection, "Sign in again" banner, webview keeps the browser session |
+| XSRF check on POST with cookie auth | `X-Atlassian-Token: no-check`, JSON content type, no `Origin` header |
+| `Webview::cookies()` can block in synchronous commands on Windows | Call `cookies_for_url` only from async tasks |
+| Tray/hotkeys limited under Wayland | Document it; the app remains usable without a tray |
+| Idle detection not available under Wayland | Time-jump watchdog stays active, idle detection can be turned off |
+| Shutdown dialog not possible on Linux | Heartbeat + prompt on the next start |
+| Cloud search uses the new pagination | Client detects `deploymentType` and picks the endpoint |
+| No code signing | Unsigned release at first; secrets for signing prepared and documented |
 
-## 9. Review-Ergebnis und Entscheidungen
+## 9. Review results and decisions
 
-Der Plan wurde unabhängig geprüft, siehe [PLAN_REVIEW.md](PLAN_REVIEW.md) (15 Findings). Entscheidungen:
+The plan was reviewed independently, see [PLAN_REVIEW.md](PLAN_REVIEW.md) (15 findings). Decisions:
 
-| Finding | Entscheidung |
+| Finding | Decision |
 |---|---|
-| 1 Cookie-Login als einziger Pfad | Browser-Login bleibt Standard (Anforderung: kein API-Token, SSO, 2FA). Ergänzt: Cookie-Rotation wird übernommen (jede `Set-Cookie`-Antwort aktualisiert die gespeicherte Session), Login-Webview mit Desktop-Browser-User-Agent (IdPs blocken sonst eingebettete Webviews). OAuth 2.0 (3LO, Systembrowser + localhost-Callback) ist als zweiter offizieller Pfad vorgesehen (Credential-Variante im Modell, Umsetzung nach v0.1, da App-Registrierung durch den Auftraggeber nötig). Ein Spike gegen die echte Instanz ist der erste Schritt nach Übergabe, siehe [JIRA_AUTH.md](JIRA_AUTH.md). |
-| 2 Tauri statt reinem Rust-GUI | Beibehalten. Begründung ehrlich: Produktivität, Plattformintegration, Webview-Login. Fachlogik vollständig in `yattt-core`. Muss vom Auftraggeber bestätigt werden. |
-| 3 Tempo Cloud synchronisiert Jira-Worklogs nur über Nacht | Bei Jira Cloud wird der Tempo-Cloud-API-Pfad (Tempo-Token) als Standard empfohlen und in der UI vorgeschlagen; Jira-Worklog bleibt Standard für Data Center. |
-| 4 Shutdown-Hooks | macOS: `applicationShouldTerminate:` per `class_replaceMethod` (fügt hinzu oder ersetzt, robust gegen künftige tao-Versionen), synchroner `NSAlert`. Windows: `WM_QUERYENDSESSION` → `ShutdownBlockReasonCreate` + `FALSE`, Entscheidung im App-Dialog, `WM_ENDSESSION` sichert Zustand. Linux: Heartbeat und Nachfrage beim Start (Session-Inhibit später). Heartbeat bleibt die Garantie auf allen Plattformen. |
-| 5 Session passt nicht in Windows Credential Manager | Übernommen: im Schlüsselbund liegt nur ein zufälliger 32-Byte-Schlüssel; Session, Tokens und Passwörter liegen XChaCha20-Poly1305-verschlüsselt in `secrets.enc` im Konfigurationsverzeichnis. Ohne Schlüsselbund (Linux ohne Secret Service) liegt der Schlüssel in einer Datei mit Rechten 0600, mit Warnung in den Einstellungen. |
-| 6 Buchung pro Eintrag vs. Cluster | v0.1 bucht pro Eintrag (nachvollziehbar, einfache Korrektur per PUT/DELETE). Rundung ist standardmäßig aus; Hinweis in den Einstellungen, dass Rundung pro Eintrag wirkt. Cluster-Buchung (ein Worklog pro Tag und Ticket) ist als Folgearbeit eingeplant. Zeitstempel: UTC in SQLite, lokale Zeit für Tagesgrenzen, Jira `started` mit Offset. Mindestdauer 60 s wird erzwungen. Mehrfach-Timer sind standardmäßig aus. Sprints hängen an Boards, nicht an Projekten. |
-| 7 Endpunkte | Cloud `/rest/api/2/search/jql` mit `nextPageToken`, DC `/rest/api/2/search` mit `startAt`; Felder immer explizit; 429 mit `Retry-After` wird einmal wiederholt. |
-| 8 Interne CAs/Proxy | `reqwest` mit `rustls-tls-native-roots` (System-Zertifikatspeicher), System-Proxy über Umgebungsvariablen. |
-| 9 Idle unter Wayland | `user-idle` bleibt (X11/macOS/Windows); Wayland über Zeitsprung-Watchdog. Wechsel auf `user-idle3` geprüft, siehe Risiken. |
-| 10 Signierung | Pipeline unterstützt Signierung/Notarisierung über Secrets (`APPLE_CERTIFICATE`, `APPLE_ID`, `TAURI_SIGNING_PRIVATE_KEY`); ohne Secrets werden unsignierte Artefakte gebaut. Zertifikate muss der Auftraggeber bereitstellen. |
-| 11 Tauri-Details | `tauri-plugin-window-state`, Feature `tray-icon`, „Abmelden“ löscht Webview-Daten (`clear_all_browsing_data`). |
-| 12 Tyme-Matrix | Mehrfach-Timer mit Warnung, Dauer direkt editierbar, Eintrag duplizieren/verschieben in der Zeitenansicht. UI-Sprache: Deutsch (v0.1). |
-| 13 A6 | Abweichung dokumentiert: Bei SSO wird nie das Passwort, sondern die Session gespeichert. Nur bei Benutzername/Passwort gegen Data Center ohne SSO liegt das Passwort (verschlüsselt) lokal. |
-| 14 Reihenfolge | CI ab M1; Heartbeat/Wiederherstellung in M3; Shutdown-Hooks in M4 statt M5; Import vorhandener Worklogs nach v0.1. |
-| 15 Kleinigkeiten | WAL ist aktiv, Backup per SQLite-Backup-API, Logdatei im Datenverzeichnis. |
+| 1 Cookie login as the only path | Browser login remains the default (requirement: no API token, SSO, 2FA). Added: cookie rotation is applied (every `Set-Cookie` response updates the stored session), login webview with a desktop browser user agent (IdPs otherwise block embedded webviews). OAuth 2.0 (3LO, system browser + localhost callback) is planned as a second official path (credential variant in the model, implementation after v0.1, since the client has to register the app). A spike against the real instance is the first step after handover, see [JIRA_AUTH.md](JIRA_AUTH.md). |
+| 2 Tauri instead of a pure Rust GUI | Kept. Honest rationale: productivity, platform integration, webview login. Business logic entirely in `yattt-core`. Must be confirmed by the client. |
+| 3 Tempo Cloud syncs Jira worklogs only overnight | With Jira Cloud, the Tempo Cloud API path (Tempo token) is recommended as the default and suggested in the UI; Jira worklog remains the default for Data Center. |
+| 4 Shutdown hooks | macOS: `applicationShouldTerminate:` via `class_replaceMethod` (adds or replaces, robust against future tao versions), synchronous `NSAlert`. Windows: `WM_QUERYENDSESSION` → `ShutdownBlockReasonCreate` + `FALSE`, decision in the app dialog, `WM_ENDSESSION` saves the state. Linux: heartbeat and prompt on start (session inhibit later). The heartbeat remains the guarantee on all platforms. |
+| 5 Session does not fit in the Windows Credential Manager | Adopted: the keychain holds only a random 32-byte key; session, tokens and passwords are stored XChaCha20-Poly1305-encrypted in `secrets.enc` in the configuration directory. Without a keychain (Linux without Secret Service), the key is stored in a file with permissions 0600, with a warning in the settings. |
+| 6 Booking per entry vs. cluster | v0.1 books per entry (traceable, simple correction via PUT/DELETE). Rounding is off by default; the settings note that rounding applies per entry. Cluster booking (one worklog per day and ticket) is planned as follow-up work. Timestamps: UTC in SQLite, local time for day boundaries, Jira `started` with offset. A minimum duration of 60 s is enforced. Multiple timers are off by default. Sprints belong to boards, not to projects. |
+| 7 Endpoints | Cloud `/rest/api/2/search/jql` with `nextPageToken`, DC `/rest/api/2/search` with `startAt`; fields always explicit; 429 with `Retry-After` is retried once. |
+| 8 Internal CAs/proxy | `reqwest` with `rustls-tls-native-roots` (system certificate store), system proxy via environment variables. |
+| 9 Idle under Wayland | `user-idle` stays (X11/macOS/Windows); Wayland via time-jump watchdog. Switching to `user-idle3` was evaluated, see risks. |
+| 10 Signing | The pipeline supports signing/notarization via secrets (`APPLE_CERTIFICATE`, `APPLE_ID`, `TAURI_SIGNING_PRIVATE_KEY`); without secrets, unsigned artifacts are built. The client has to provide the certificates. |
+| 11 Tauri details | `tauri-plugin-window-state`, feature `tray-icon`, "Sign out" clears the webview data (`clear_all_browsing_data`). |
+| 12 Tyme matrix | Multiple timers with a warning, duration directly editable, duplicate/move entry in the Times view. UI language: German and English, switchable in the settings (since 0.4.0). |
+| 13 A6 | Deviation documented: with SSO, the session is stored, never the password. Only with username/password against Data Center without SSO is the password stored (encrypted) locally. |
+| 14 Order | CI from M1 on; heartbeat/restore in M3; shutdown hooks in M4 instead of M5; import of existing worklogs after v0.1. |
+| 15 Minor points | WAL is active, backup via the SQLite backup API, log file in the data directory. |
 
-## 10. Umsetzungsstand (31.10.2026)
+## 10. Implementation status (31.10.2026)
 
-| Bereich | Stand |
+| Area | Status |
 |---|---|
-| `yattt-core` | Umgesetzt: Settings, verschlüsselte Secrets, Jira-Client (Cloud/DC, Cookie-Rotation, 429-Retry), JQL-Aufbau, Tempo DC/Cloud, SQLite, TimerEngine, Buchung/Sync/Import, Statistik, Export, Rundung, Idle. 47 Tests grün, Clippy ohne Warnungen. |
-| Tauri-App | Umgesetzt: Commands, Login-Webview mit Cookie-Übernahme, Tray (Menü, Titel), Scheduler (Heartbeat, Idle/Sleep, Auto-Refresh, Hintergrund-Sync, Erinnerungen, Backups), globale Tastenkürzel, Autostart, Shutdown-Hooks macOS/Windows, Wiederherstellungsdialog. |
-| Frontend | Umgesetzt: Timer-Leiste, Tickets (Gruppen, Filter inkl. Labels, Suche, Favoriten mit Limit, Soll/Ist), Zeiten (Liste, Woche, Editor, Buchen, Undo), Statistik (KPIs, Balken, Donut, Top-Tickets, Heatmap, Export, Stundenzettel), Einstellungen (7 Bereiche), Dialoge (Idle, Wiederherstellung, Beenden, Notiz). Mock-Backend für Entwicklung im Browser. |
-| CI/Release | CI läuft auf GitHub grün (ubuntu-22.04, macOS, Windows). Release-Workflow baut Linux (.deb/.rpm/.AppImage), Windows (.msi/-setup.exe) und macOS (universelles .dmg); Signierung nur, wenn Secrets gesetzt sind. Erstes vollständiges Release: v0.1.1; v0.2.0 mit Tray-Favoriten und Label-Filter (31.10.2026). |
-| Getestet | Core-Tests; UI im Browser (Mock); native App auf macOS: Shutdown-Hook installiert, Backup geschrieben, SSO/2FA-Login gegen die Jira-Cloud-Instanz des Teams bestätigt (31.10.2026); Tray-Favoriten und Label-Filter in der nativen App bestätigt. |
-| Offen | Buchung gegen die Jira-Instanz des Teams noch nicht im Echtbetrieb geprüft; Windows-/Linux-Builds nur über CI geprüft; Windows-Shutdown-Hook ungetestet; OAuth 2.0, Cluster-Buchung, Linux-Session-Inhibit als Folgearbeiten. |
+| `yattt-core` | Implemented: settings, encrypted secrets, Jira client (Cloud/DC, cookie rotation, 429 retry), JQL building, Tempo DC/Cloud, SQLite, TimerEngine, booking/sync/import, statistics, export, rounding, idle. 47 tests green, Clippy without warnings. |
+| Tauri app | Implemented: commands, login webview with cookie takeover, tray (menu, title), scheduler (heartbeat, idle/sleep, auto-refresh, background sync, reminders, backups), global shortcuts, autostart, shutdown hooks for macOS/Windows, restore prompt. |
+| Frontend | Implemented: timer bar, Tickets (groups, filters including labels, search, favorites with limit, target/actual), Times (list, week, editor, booking, undo), Statistics (KPIs, bars, donut, top tickets, heatmap, export, timesheet), Settings (7 sections), dialogs (idle, restore, quit, note). Mock backend for development in the browser. Since 0.4.0 the UI, tray menu, notifications and error messages are available in German and English (setting "Language": system, German, English). |
+| CI/Release | CI is green on GitHub (ubuntu-22.04, macOS, Windows). The release workflow builds Linux (.deb/.rpm/.AppImage), Windows (.msi/-setup.exe) and macOS (universal .dmg); signing only when secrets are set. First complete release: v0.1.1; v0.2.0 with tray favorites and label filter (31.10.2026). |
+| Tested | Core tests; UI in the browser (mock); native app on macOS: shutdown hook installed, backup written, SSO/2FA login against the team's Jira Cloud instance confirmed (31.10.2026); tray favorites and label filter confirmed in the native app. |
+| Open | Booking against the team's Jira instance not yet verified in real use; Windows/Linux builds verified only via CI; Windows shutdown hook untested; OAuth 2.0, cluster booking and Linux session inhibit as follow-up work. |

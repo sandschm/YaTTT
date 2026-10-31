@@ -127,8 +127,8 @@ fn toggle_timer(app: &AppHandle, state: &Arc<AppState>) {
                 scheduler::notify(
                     app,
                     state,
-                    "Timer gestartet",
-                    &format!("{} läuft", r.started.issue_key),
+                    yattt_core::tr!("Timer gestartet", "Timer started"),
+                    &yattt_core::tr!("{key} läuft", "{key} is running", key = r.started.issue_key),
                 );
             }),
             None => {
@@ -138,7 +138,12 @@ fn toggle_timer(app: &AppHandle, state: &Arc<AppState>) {
         }
     } else {
         engine.stop_all(None, Utc::now()).map(|_| {
-            scheduler::notify(app, state, "Timer gestoppt", "Alle Timer wurden gestoppt.");
+            scheduler::notify(
+                app,
+                state,
+                yattt_core::tr!("Timer gestoppt", "Timer stopped"),
+                yattt_core::tr!("Alle Timer wurden gestoppt.", "All timers were stopped."),
+            );
         })
     };
     if let Err(e) = result {
@@ -147,8 +152,25 @@ fn toggle_timer(app: &AppHandle, state: &Arc<AppState>) {
     after_timer_change(app, state);
 }
 
+/// Language the operating system prefers.
+pub fn system_language() -> yattt_core::Lang {
+    yattt_core::Lang::from_tag(&sys_locale::get_locale().unwrap_or_default())
+}
+
+/// Makes the core, tray, notifications and dialogs speak the configured language.
+pub fn apply_language(settings: &Settings) {
+    let lang = settings
+        .behavior
+        .language
+        .resolve(sys_locale::get_locale().as_deref());
+    yattt_core::i18n::set_lang(lang);
+}
+
 /// Apply settings that have side effects outside the core (autostart, shortcuts, tray).
 pub fn apply_settings(app: &AppHandle, state: &Arc<AppState>, old: &Settings, new: &Settings) {
+    if old.behavior.language != new.behavior.language {
+        apply_language(new);
+    }
     if old.behavior.autostart != new.behavior.autostart {
         let launcher = app.autolaunch();
         let res = if new.behavior.autostart {
@@ -191,11 +213,10 @@ fn prepare_restore_prompt(state: &Arc<AppState>) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let paths = AppPaths::discover().expect("Benutzerverzeichnisse nicht gefunden");
+    let paths = AppPaths::discover().expect("user directories not found");
     init_logging(&paths);
-    let state = Arc::new(
-        AppState::init(paths).expect("Anwendungsdaten konnten nicht initialisiert werden"),
-    );
+    let state = Arc::new(AppState::init(paths).expect("application data could not be initialized"));
+    apply_language(&state.settings());
     let state_for_run = state.clone();
     let state_for_setup = state.clone();
 
@@ -312,9 +333,10 @@ pub fn run() {
             commands::cancel_exit,
             commands::set_tempo_cloud_token,
             commands::get_app_info,
+            commands::get_system_language,
         ])
         .build(tauri::generate_context!())
-        .expect("Fehler beim Start von YaTTT")
+        .expect("error while starting YaTTT")
         .run(move |app, event| match event {
             RunEvent::ExitRequested { api, code, .. } => {
                 if code.is_none()

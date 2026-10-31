@@ -2,6 +2,7 @@
 //! Secrets never live here, they go to [`crate::secrets`].
 
 use crate::error::{Error, Result};
+use crate::i18n::Lang;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -281,6 +282,28 @@ pub enum Theme {
     Dark,
 }
 
+/// Language of the user interface, tray menu, notifications and messages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum Language {
+    /// Follow the operating system (German when it is German, English otherwise).
+    #[default]
+    System,
+    De,
+    En,
+}
+
+impl Language {
+    /// Resolves the choice to a concrete language; `system_tag` is the OS locale (e.g. `de-DE`).
+    pub fn resolve(self, system_tag: Option<&str>) -> Lang {
+        match self {
+            Language::De => Lang::De,
+            Language::En => Lang::En,
+            Language::System => system_tag.map(Lang::from_tag).unwrap_or_default(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct BehaviorSettings {
@@ -288,6 +311,7 @@ pub struct BehaviorSettings {
     pub autostart: bool,
     pub notifications: bool,
     pub theme: Theme,
+    pub language: Language,
     pub shortcut_toggle_timer: String,
     pub shortcut_show_window: String,
     pub show_timer_in_tray: bool,
@@ -300,6 +324,7 @@ impl Default for BehaviorSettings {
             autostart: false,
             notifications: true,
             theme: Theme::System,
+            language: Language::System,
             shortcut_toggle_timer: "CommandOrControl+Shift+T".to_string(),
             shortcut_show_window: "CommandOrControl+Shift+Y".to_string(),
             show_timer_in_tray: true,
@@ -360,7 +385,11 @@ impl Settings {
         }
         if self.refresh.interval_minutes == 0 && self.refresh.auto {
             return Err(Error::Invalid(
-                "Aktualisierungsintervall muss mindestens 1 Minute sein".into(),
+                crate::tr!(
+                    "Aktualisierungsintervall muss mindestens 1 Minute sein",
+                    "The refresh interval must be at least 1 minute"
+                )
+                .into(),
             ));
         }
         check_extra_jql(&self.selection.extra_jql)?;
@@ -392,11 +421,15 @@ pub fn normalize_jira_url(input: &str) -> Result<String> {
     };
     let mut url = url::Url::parse(&with_scheme)?;
     if url.scheme() != "https" && url.scheme() != "http" {
-        return Err(Error::InvalidUrl("Nur http(s) wird unterstützt".into()));
+        return Err(Error::InvalidUrl(
+            crate::tr!("Nur http(s) wird unterstützt", "Only http(s) is supported").into(),
+        ));
     }
     let host = url
         .host_str()
-        .ok_or_else(|| Error::InvalidUrl("Kein Host in der URL".into()))?
+        .ok_or_else(|| {
+            Error::InvalidUrl(crate::tr!("Kein Host in der URL", "The URL has no host").into())
+        })?
         .to_lowercase();
     url.set_query(None);
     url.set_fragment(None);
@@ -437,10 +470,22 @@ pub struct AppPaths {
 impl AppPaths {
     pub fn discover() -> Result<Self> {
         let config_dir = dirs::config_dir()
-            .ok_or_else(|| Error::Io("Kein Konfigurationsverzeichnis gefunden".into()))?
+            .ok_or_else(|| {
+                Error::Io(
+                    crate::tr!(
+                        "Kein Konfigurationsverzeichnis gefunden",
+                        "No config directory found"
+                    )
+                    .into(),
+                )
+            })?
             .join(APP_DIR_NAME);
         let data_dir = dirs::data_dir()
-            .ok_or_else(|| Error::Io("Kein Datenverzeichnis gefunden".into()))?
+            .ok_or_else(|| {
+                Error::Io(
+                    crate::tr!("Kein Datenverzeichnis gefunden", "No data directory found").into(),
+                )
+            })?
             .join(APP_DIR_NAME);
         Ok(Self {
             config_dir,
@@ -508,9 +553,12 @@ pub fn check_extra_jql(extra: &str) -> Result<()> {
     }
     let has_operator = extra.contains(['=', '~', '<', '>', '!', '(', ')']);
     if !has_operator && !extra.contains(char::is_whitespace) {
-        return Err(Error::Invalid(format!(
+        return Err(Error::Invalid(crate::tr!(
             "„{extra}“ ist keine JQL-Bedingung. Für ein Label: labels = {extra}. \
-             Labels je Projekt ordnest du unter „Projekte & Sprints“ zu."
+             Labels je Projekt ordnest du unter „Projekte & Sprints“ zu.",
+            "\"{extra}\" is not a JQL condition. For a label use: labels = {extra}. \
+             Labels per project are assigned under \"Projects & Sprints\".",
+            extra = extra
         )));
     }
     Ok(())
@@ -546,6 +594,18 @@ mod tests {
         let mut settings = Settings::default();
         settings.selection.extra_jql = "Tim".into();
         assert!(settings.validate().is_err());
+    }
+
+    #[test]
+    fn language_resolves_system_locale() {
+        assert_eq!(Language::System.resolve(Some("de-DE")), Lang::De);
+        assert_eq!(Language::System.resolve(Some("en-US")), Lang::En);
+        assert_eq!(Language::System.resolve(None), Lang::En);
+        assert_eq!(Language::De.resolve(Some("en-US")), Lang::De);
+        assert_eq!(Language::En.resolve(Some("de-DE")), Lang::En);
+        let s: Settings = serde_json::from_str(r#"{"behavior":{"language":"en"}}"#).unwrap();
+        assert_eq!(s.behavior.language, Language::En);
+        assert_eq!(Settings::default().behavior.language, Language::System);
     }
 
     #[test]

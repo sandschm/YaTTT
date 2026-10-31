@@ -1,30 +1,62 @@
-use thiserror::Error;
+use crate::tr;
+use std::fmt;
 
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum Error {
-    #[error("Nicht angemeldet")]
     NotAuthenticated,
-    #[error("Sitzung abgelaufen oder keine Berechtigung (HTTP {0})")]
+    /// HTTP status that indicated an expired session or missing permission.
     AuthExpired(u16),
-    #[error("Jira antwortete mit HTTP {status}: {message}")]
-    Http { status: u16, message: String },
-    #[error("Netzwerkfehler: {0}")]
+    Http {
+        status: u16,
+        message: String,
+    },
     Network(String),
-    #[error("Ungültige URL: {0}")]
     InvalidUrl(String),
-    #[error("Datenbankfehler: {0}")]
     Database(String),
-    #[error("Schlüsselbund: {0}")]
     Keyring(String),
-    #[error("Ein-/Ausgabefehler: {0}")]
     Io(String),
-    #[error("Ungültige Daten: {0}")]
     Parse(String),
-    #[error("{0}")]
+    /// A complete, user-facing message.
     Invalid(String),
-    #[error("Nicht gefunden: {0}")]
     NotFound(String),
 }
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::NotAuthenticated => f.write_str(tr!("Nicht angemeldet", "Not signed in")),
+            Error::AuthExpired(code) => f.write_str(&tr!(
+                "Sitzung abgelaufen oder keine Berechtigung (HTTP {code})",
+                "Session expired or no permission (HTTP {code})",
+                code = code
+            )),
+            Error::Http { status, message } => f.write_str(&tr!(
+                "Jira antwortete mit HTTP {status}: {message}",
+                "Jira answered with HTTP {status}: {message}",
+                status = status,
+                message = message
+            )),
+            Error::Network(e) => {
+                f.write_str(&tr!("Netzwerkfehler: {e}", "Network error: {e}", e = e))
+            }
+            Error::InvalidUrl(e) => {
+                f.write_str(&tr!("Ungültige URL: {e}", "Invalid URL: {e}", e = e))
+            }
+            Error::Database(e) => {
+                f.write_str(&tr!("Datenbankfehler: {e}", "Database error: {e}", e = e))
+            }
+            Error::Keyring(e) => f.write_str(&tr!("Schlüsselbund: {e}", "Keychain: {e}", e = e)),
+            Error::Io(e) => f.write_str(&tr!("Ein-/Ausgabefehler: {e}", "I/O error: {e}", e = e)),
+            Error::Parse(e) => {
+                f.write_str(&tr!("Ungültige Daten: {e}", "Invalid data: {e}", e = e))
+            }
+            Error::Invalid(e) => f.write_str(e),
+            Error::NotFound(e) => f.write_str(&tr!("Nicht gefunden: {e}", "Not found: {e}", e = e)),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
 
 pub type Result<T> = std::result::Result<T, Error>;
 

@@ -1,53 +1,53 @@
-# Release-Prozess
+# Release process
 
 ## Pipelines
 
-- **CI** (`.github/workflows/ci.yml`): bei jedem Push/PR auf drei Plattformen `cargo fmt --check`,
-  `cargo test -p yattt-core`, `cargo clippy`, `npm run check`, `npm run build`, `cargo check -p yattt`.
-- **Release** (`.github/workflows/release.yml`): bei einem Tag `v*` (oder manuell) baut
-  `tauri-apps/tauri-action` die Installationspakete und legt einen **Release-Entwurf** an:
-  - macOS: universelles `.dmg` (Apple Silicon + Intel)
-  - Windows: `.msi` (WiX) und `-setup.exe` (NSIS, Installation pro Benutzer)
+- **CI** (`.github/workflows/ci.yml`): on every push/PR, runs `cargo fmt --check`,
+  `cargo test -p yattt-core`, `cargo clippy`, `npm run check`, `npm run build`, `cargo check -p yattt` on three platforms.
+- **Release** (`.github/workflows/release.yml`): on a `v*` tag (or manually),
+  `tauri-apps/tauri-action` builds the installer packages and creates a **draft release**:
+  - macOS: universal `.dmg` (Apple Silicon + Intel)
+  - Windows: `.msi` (WiX) and `-setup.exe` (NSIS, per-user installation)
   - Linux: `.deb`, `.rpm`, `.AppImage`
 
-## Version erhöhen und veröffentlichen
+## Bumping the version and publishing
 
-1. Version in `package.json` setzen (die Tauri-Konfiguration liest sie von dort) und in
-   `Cargo.toml` (`[workspace.package] version`) angleichen.
-2. Änderungen committen, Tag setzen und pushen:
+1. Set the version in `package.json` (the Tauri configuration reads it from there) and match it
+   in `Cargo.toml` (`[workspace.package] version`).
+2. Commit the changes, create the tag and push:
 
 ```bash
-git tag v0.3.0 && git push origin main --tags
+git tag v0.4.0 && git push origin main --tags
 ```
 
-3. Eintrag in `CHANGELOG.md` ergänzen.
-4. Nach dem Lauf den Release-Entwurf unter „Releases“ prüfen und veröffentlichen.
+3. Add an entry to `CHANGELOG.md`.
+4. After the run, review the draft release under "Releases" and publish it.
 
-## Signierung (optional, empfohlen)
+## Signing (optional, recommended)
 
-Ohne Signatur blockiert macOS Gatekeeper den ersten Start (Rechtsklick → Öffnen bzw.
-`xattr -dr com.apple.quarantine`), Windows SmartScreen warnt. Für signierte Builds folgende
-Repository-Secrets setzen:
+Without a signature, macOS Gatekeeper blocks the first launch (right-click → Open, or
+`xattr -dr com.apple.quarantine`) and Windows SmartScreen shows a warning. For signed builds,
+set the following repository secrets:
 
-| Secret | Bedeutung |
+| Secret | Meaning |
 |---|---|
-| `APPLE_CERTIFICATE` | Developer-ID-Application-Zertifikat als Base64 (`.p12`) |
-| `APPLE_CERTIFICATE_PASSWORD` | Passwort der `.p12` |
-| `APPLE_SIGNING_IDENTITY` | z. B. `Developer ID Application: Firma (TEAMID)` |
-| `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Für die Notarisierung (App-spezifisches Passwort) |
-| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Nur nötig, wenn das Updater-Plugin aktiviert wird |
+| `APPLE_CERTIFICATE` | Developer ID Application certificate as Base64 (`.p12`) |
+| `APPLE_CERTIFICATE_PASSWORD` | Password of the `.p12` |
+| `APPLE_SIGNING_IDENTITY` | e.g. `Developer ID Application: Company (TEAMID)` |
+| `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | For notarization (app-specific password) |
+| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Only needed if the updater plugin is enabled |
 
-Windows-Code-Signing lässt sich über `bundle.windows.certificateThumbprint` in
-`src-tauri/tauri.conf.json` und ein im Runner installiertes Zertifikat ergänzen.
+Windows code signing can be added via `bundle.windows.certificateThumbprint` in
+`src-tauri/tauri.conf.json` and a certificate installed on the runner.
 
-Hinweis: Die Signatur-Variablen werden im Workflow nur exportiert, wenn die Secrets gesetzt sind.
-Ein leerer `APPLE_CERTIFICATE`-Wert lässt den macOS-Build sonst beim Signieren scheitern (so
-geschehen beim ersten Release-Lauf v0.1.0).
+Note: The workflow only exports the signing variables if the secrets are set. Otherwise an
+empty `APPLE_CERTIFICATE` value makes the macOS build fail during signing (as happened in the
+first release run, v0.1.0).
 
-## Lokaler Build
+## Local build
 
 ```bash
 npm run tauri build
 ```
 
-Die Pakete liegen danach unter `target/release/bundle/`.
+The packages are then located under `target/release/bundle/`.

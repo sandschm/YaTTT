@@ -1,6 +1,7 @@
 <script lang="ts">
   import { store } from "../lib/store.svelte";
   import { api, type Issue, type TimeEntry } from "../lib/api";
+  import { t } from "../lib/i18n.svelte";
   import { formatDuration, formatTime, fromLocalInput, toLocalInput } from "../lib/format";
   import Icon from "./Icon.svelte";
   import IssuePicker from "./IssuePicker.svelte";
@@ -109,9 +110,9 @@
     <div class="idle">
       <div class="label row">
         <Icon name="clock" size={18} />
-        <span>Kein Timer läuft</span>
+        <span>{t("timer.none")}</span>
       </div>
-      <IssuePicker bind:value={pickerValue} onpick={onPick} placeholder="Ticket wählen und Timer starten …" />
+      <IssuePicker bind:value={pickerValue} onpick={onPick} placeholder={t("timer.pickPlaceholder")} />
     </div>
   {:else}
     <div class="runs">
@@ -121,7 +122,7 @@
           <span class="dot" style="background:{store.color(issue?.projectKey ?? entry.issueKey.split('-')[0])}"></span>
           <div class="info grow">
             <div class="row">
-              <button class="key mono" type="button" onclick={() => openIssue(entry.issueKey)} title="In Jira öffnen">{entry.issueKey}</button>
+              <button class="key mono" type="button" onclick={() => openIssue(entry.issueKey)} title={t("timer.openInJira")}>{entry.issueKey}</button>
               <span class="ellipsis summary">{issue?.summary ?? ""}</span>
             </div>
             <div class="row meta">
@@ -133,19 +134,19 @@
                   onkeydown={(e) => { if (e.key === "Enter") commitStart(entry); if (e.key === "Escape") editingStart = null; }}
                 />
               {:else}
-                <button class="link" type="button" onclick={() => beginEditStart(entry)} title="Startzeit anpassen">seit {formatTime(entry.startedAt)}</button>
+                <button class="link" type="button" onclick={() => beginEditStart(entry)} title={t("timer.editStart")}>{t("timer.since", { time: formatTime(entry.startedAt) })}</button>
               {/if}
               <input
                 class="note"
                 type="text"
-                placeholder="Notiz (wird Worklog-Kommentar) …"
+                placeholder={t("timer.notePlaceholder")}
                 value={noteDrafts[entry.id] ?? entry.note}
                 oninput={(e) => onNoteInput(entry, (e.target as HTMLInputElement).value)}
               />
             </div>
           </div>
           <div class="elapsed mono">{formatDuration(store.elapsed(entry), "hoursMinutes", true)}</div>
-          <button class="btn running icon" type="button" onclick={() => stop(entry)} title="Timer stoppen" aria-label="Timer stoppen">
+          <button class="btn running icon" type="button" onclick={() => stop(entry)} title={t("timer.stop")} aria-label={t("timer.stop")}>
             <Icon name="stop" size={16} />
           </button>
         </div>
@@ -155,19 +156,19 @@
   {#if noteAsk}
     <div class="overlay" role="presentation">
       <div class="dialog" role="dialog" aria-modal="true">
-        <h2>Woran hast du gearbeitet?</h2>
-        <p>Die Notiz wird als Kommentar des Worklogs für {noteAsk.issueKey} gebucht.</p>
-        <textarea rows="3" bind:value={noteAskText} placeholder="Kurze Beschreibung …" onkeydown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) confirmNoteAndStop(); if (e.key === "Escape") noteAsk = null; }}></textarea>
+        <h2>{t("timer.noteTitle")}</h2>
+        <p>{t("timer.noteText", { key: noteAsk.issueKey })}</p>
+        <textarea rows="3" bind:value={noteAskText} placeholder={t("timer.noteInput")} onkeydown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) confirmNoteAndStop(); if (e.key === "Escape") noteAsk = null; }}></textarea>
         <div class="actions">
-          <button class="btn" type="button" onclick={() => (noteAsk = null)}>Abbrechen</button>
-          <button class="btn" type="button" onclick={() => { noteAskText = ""; confirmNoteAndStop(); }}>Ohne Notiz stoppen</button>
-          <button class="btn primary" type="button" onclick={confirmNoteAndStop}>Stoppen</button>
+          <button class="btn" type="button" onclick={() => (noteAsk = null)}>{t("common.cancel")}</button>
+          <button class="btn" type="button" onclick={() => { noteAskText = ""; confirmNoteAndStop(); }}>{t("timer.stopWithoutNote")}</button>
+          <button class="btn primary" type="button" onclick={confirmNoteAndStop}>{t("timer.stopBtn")}</button>
         </div>
       </div>
     </div>
   {/if}
   <div class="today">
-    <span class="faint">Heute</span>
+    <span class="faint">{t("common.today")}</span>
     <span class="mono total">{formatDuration(liveToday, store.timeFormat)}</span>
   </div>
 </div>

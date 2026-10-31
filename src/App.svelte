@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { store, type View } from "./lib/store.svelte";
+  import { t, type Key } from "./lib/i18n.svelte";
   import Icon from "./components/Icon.svelte";
   import TimerBar from "./components/TimerBar.svelte";
   import Dialogs from "./components/Dialogs.svelte";
@@ -10,11 +11,11 @@
   import SettingsView from "./views/SettingsView.svelte";
   import { api } from "./lib/api";
 
-  const nav: { id: View; label: string; icon: string }[] = [
-    { id: "tickets", label: "Tickets", icon: "list" },
-    { id: "times", label: "Zeiten", icon: "clock" },
-    { id: "stats", label: "Statistik", icon: "chart" },
-    { id: "settings", label: "Einstellungen", icon: "settings" },
+  const nav: { id: View; label: Key; icon: string }[] = [
+    { id: "tickets", label: "nav.tickets", icon: "list" },
+    { id: "times", label: "nav.times", icon: "clock" },
+    { id: "stats", label: "nav.stats", icon: "chart" },
+    { id: "settings", label: "nav.settings", icon: "settings" },
   ];
 
   onMount(() => {
@@ -53,7 +54,7 @@
       {#each nav as item (item.id)}
         <button class="nav-item" class:active={store.view === item.id} type="button" onclick={() => (store.view = item.id)}>
           <Icon name={item.icon} size={17} />
-          <span>{item.label}</span>
+          <span>{t(item.label)}</span>
         </button>
       {/each}
     </nav>
@@ -61,15 +62,15 @@
       {#if store.connected}
         <div class="conn ok" title={store.auth.server?.baseUrl ?? ""}>
           <span class="dot" style="background: var(--success)"></span>
-          <span class="ellipsis">{store.auth.user?.displayName ?? "Verbunden"}</span>
+          <span class="ellipsis">{store.auth.user?.displayName ?? t("app.connected")}</span>
         </div>
       {:else}
         <button class="conn warn" type="button" onclick={() => (store.view = "settings")}>
           <span class="dot" style="background: var(--warning)"></span>
-          <span class="ellipsis">Nicht mit Jira verbunden</span>
+          <span class="ellipsis">{t("app.notConnected")}</span>
         </button>
       {/if}
-      <button class="btn ghost sm quit" type="button" onclick={() => api.requestQuit()} title="YaTTT beenden">Beenden</button>
+      <button class="btn ghost sm quit" type="button" onclick={() => api.requestQuit()} title={t("app.quitTitle")}>{t("app.quit")}</button>
     </div>
   </aside>
   <main class="main">
@@ -87,7 +88,7 @@
         {/if}
       </div>
     {:else}
-      <div class="loading faint">Lade …</div>
+      <div class="loading faint">{t("app.loading")}</div>
     {/if}
   </main>
 </div>

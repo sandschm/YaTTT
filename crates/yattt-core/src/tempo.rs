@@ -66,7 +66,15 @@ impl<'a> TempoDataCenter<'a> {
             .get("tempoWorklogId")
             .or_else(|| first.get("id"))
             .map(value_to_string)
-            .ok_or_else(|| Error::Parse("Tempo-Antwort ohne tempoWorklogId".into()))?;
+            .ok_or_else(|| {
+                Error::Parse(
+                    crate::tr!(
+                        "Tempo-Antwort ohne tempoWorklogId",
+                        "Tempo response without tempoWorklogId"
+                    )
+                    .into(),
+                )
+            })?;
         let jira_id = first
             .get("originId")
             .map(value_to_string)
@@ -201,7 +209,15 @@ impl TempoCloud {
         let tempo_id = v
             .get("tempoWorklogId")
             .map(value_to_string)
-            .ok_or_else(|| Error::Parse("Tempo-Antwort ohne tempoWorklogId".into()))?;
+            .ok_or_else(|| {
+                Error::Parse(
+                    crate::tr!(
+                        "Tempo-Antwort ohne tempoWorklogId",
+                        "Tempo response without tempoWorklogId"
+                    )
+                    .into(),
+                )
+            })?;
         let jira_id = v.pointer("/issue/id").map(|_| ()).and(None); // Tempo Cloud does not expose the Jira worklog id here
         Ok(TempoWorklogIds {
             tempo_worklog_id: tempo_id,

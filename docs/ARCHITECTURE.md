@@ -1,78 +1,81 @@
-# Architektur
+# Architecture
 
-## Überblick
+## Overview
 
 ```
-Svelte-Frontend (src/)  ── invoke/listen ──▶  Tauri-App (src-tauri/)  ──▶  yattt-core (crates/)
-   Views, Store, Mock                     Commands, Tray, Login-Webview,       Jira/Tempo-Client, SQLite,
-                                          Scheduler, Shutdown-Hooks            Timer, Sync, Stats, Export, Secrets
+Svelte frontend (src/)  ── invoke/listen ──▶  Tauri app (src-tauri/)  ──▶  yattt-core (crates/)
+   Views, Store, Mock                     Commands, Tray, Login Webview,       Jira/Tempo Client, SQLite,
+                                          Scheduler, Shutdown Hooks            Timer, Sync, Stats, Export, Secrets
 ```
 
-Die gesamte Fachlogik liegt in `yattt-core` und hat keine Tauri-Abhängigkeit. Das Crate ist mit
-`cargo test` testbar (Unit-Tests, HTTP-Tests gegen `wiremock`). Die Tauri-Schicht ist dünn: sie hält
-den Zustand (`AppState`), übersetzt Commands, startet Hintergrundaufgaben und spricht mit dem
-Betriebssystem.
+All business logic lives in `yattt-core` and has no dependency on Tauri. The crate is testable with
+`cargo test` (unit tests, HTTP tests against `wiremock`). The Tauri layer is thin: it holds the
+state (`AppState`), translates commands, starts background tasks and talks to the operating
+system.
 
 ## yattt-core
 
-| Modul | Aufgabe |
+| Module | Purpose |
 |---|---|
-| `models` | Datenmodell (Project, Sprint, Issue, TimeEntry, Credential, …), serde camelCase |
-| `settings` | `Settings` mit Defaults, JSON-Datei, `AppPaths` (Konfig-/Datenverzeichnis) |
-| `secrets` | `EncryptedSecretStore`: Master-Key im Schlüsselbund, Nutzdaten XChaCha20-Poly1305 in `secrets.enc` |
-| `jira` | `JiraClient` (Cloud/DC), `jira::parse` (JSON → Modell, Sprint-Feld, ADF), `jira::jql` (Query-Aufbau) |
-| `tempo` | `TempoDataCenter` (über Jira-Session) und `TempoCloud` (Token) |
-| `storage` | SQLite (`rusqlite`, WAL), Tabellen `projects`, `sprints`, `issues`, `time_entries`, `meta`; Backup per `VACUUM INTO` |
-| `timer` | `TimerEngine`: Start/Stop/Umschalten, kurze Einträge verwerfen, Idle- und Wiederherstellungsentscheidungen |
-| `sync` | Buchung (anlegen/aktualisieren/löschen) je nach `TempoMode`, Verarbeitung ausstehender Einträge, Import vorhandener Worklogs |
-| `rounding` | Rundungsregeln für die Buchung |
-| `stats` | Tagesstatistik mit lokalen Tagesgrenzen, Pausen aus Lücken, Soll aus Arbeitszeiten |
-| `export` | CSV/JSON, Zusammenfassung pro Tag und Ticket |
-| `idle` | Sekunden seit letzter Eingabe (plattformabhängig) |
+| `models` | Data model (Project, Sprint, Issue, TimeEntry, Credential, …), serde camelCase |
+| `settings` | `Settings` with defaults, JSON file, `AppPaths` (config/data directory) |
+| `secrets` | `EncryptedSecretStore`: master key in the OS keychain, payload XChaCha20-Poly1305 in `secrets.enc` |
+| `jira` | `JiraClient` (Cloud/DC), `jira::parse` (JSON → model, sprint field, ADF), `jira::jql` (query building) |
+| `tempo` | `TempoDataCenter` (via the Jira session) and `TempoCloud` (token) |
+| `storage` | SQLite (`rusqlite`, WAL), tables `projects`, `sprints`, `issues`, `time_entries`, `meta`; backup via `VACUUM INTO` |
+| `timer` | `TimerEngine`: start/stop/switch, discard short entries, idle and restore decisions |
+| `sync` | Booking (create/update/delete) depending on `TempoMode`, processing of pending entries, import of existing worklogs |
+| `rounding` | Rounding rules for booking |
+| `stats` | Daily statistics with local day boundaries, breaks derived from gaps, target from working hours |
+| `export` | CSV/JSON, summary per day and ticket |
+| `idle` | Seconds since the last input (platform-specific) |
+| `i18n` | Process-wide language (`Lang`, `set_lang`) and the `tr!("Deutsch", "English")` macro for texts the core produces |
 
-### Zeitmodell
+### Time model
 
-- Alle Zeitstempel werden als RFC 3339 in UTC gespeichert; Tagesgrenzen, Statistik und Anzeige
-  verwenden die lokale Zeitzone. Einträge über Mitternacht werden für die Statistik geteilt.
-- Ein laufender Timer ist ein `time_entry` ohne `ended_at`. Dadurch überlebt er Abstürze und
-  Neustarts. `meta.last_heartbeat` wird alle 15 s geschrieben.
-- Jira erhält `started` im Format `yyyy-MM-dd'T'HH:mm:ss.SSSZ` mit lokalem Offset; Mindestdauer 60 s.
+- All timestamps are stored as RFC 3339 in UTC; day boundaries, statistics and display use the
+  local time zone. Entries that span midnight are split for the statistics.
+- A running timer is a `time_entry` without `ended_at`. This lets it survive crashes and
+  restarts. `meta.last_heartbeat` is written every 15 s.
+- Jira receives `started` in the format `yyyy-MM-dd'T'HH:mm:ss.SSSZ` with the local offset; minimum duration 60 s.
 
-### Buchungszustände
+### Booking states
 
-`local` → `pending` → `synced`; Änderung an einem gebuchten Eintrag → `modified` (wird per PUT
-nachgezogen); Fehler → `failed` mit Fehlertext. Gelöschte Einträge mit Remote-ID werden erst nach
-erfolgreichem Remote-DELETE endgültig entfernt.
+`local` → `pending` → `synced`; a change to a booked entry → `modified` (pushed via PUT);
+error → `failed` with the error text. Deleted entries with a remote ID are only removed for good
+after a successful remote DELETE.
 
-## Tauri-Schicht
+## Tauri layer
 
-| Datei | Aufgabe |
+| File | Purpose |
 |---|---|
-| `lib.rs` | App-Aufbau, Plugins, Logging (Datei im Datenverzeichnis), Tastenkürzel, Exit-Behandlung |
-| `state.rs` | `AppState`: Store, Settings, Client, Benutzer, Refresh-Status, Idle-Tracker, Wiederherstellungsdialog |
-| `commands.rs` | Alle `#[tauri::command]`s |
-| `jobs.rs` | Session wiederherstellen, Client installieren (inkl. Cookie-Rotation → Speicher), Tickets laden, Buchen |
-| `login.rs` | Browser-Login-Fenster, Cookie-Polling, Logout inkl. Löschen der Webview-Daten |
-| `scheduler.rs` | Tick (Heartbeat, Idle/Sleep, Tray-Titel, Erinnerungen), Auto-Refresh, Hintergrund-Sync, Backups |
-| `tray.rs` | Tray-Menü (laufende Timer, Stop, Favoriten als Check-Einträge zum Starten/Stoppen, zuletzt genutzte Tickets, Aktualisieren, Beenden), Titel mit Zeit |
-| `shutdown/` | macOS `applicationShouldTerminate:` (NSAlert), Windows `WM_QUERYENDSESSION` (Block-Reason + App-Dialog) |
+| `lib.rs` | App setup, plugins, logging (file in the data directory), keyboard shortcuts, exit handling |
+| `state.rs` | `AppState`: store, settings, client, user, refresh status, idle tracker, restore prompt |
+| `commands.rs` | All `#[tauri::command]`s |
+| `jobs.rs` | Restore session, install client (incl. cookie rotation → storage), load tickets, book |
+| `login.rs` | Browser login window, cookie polling, logout incl. clearing the webview data |
+| `scheduler.rs` | Tick (heartbeat, idle/sleep, tray title, reminders), auto-refresh, background sync, backups |
+| `tray.rs` | Tray menu (running timers, stop, favorites as check items to start/stop, recently used tickets, Refresh, Quit), title with elapsed time |
+| `shutdown/` | macOS `applicationShouldTerminate:` (NSAlert), Windows `WM_QUERYENDSESSION` (block reason + app dialog) |
 
-### Events (Backend → Frontend)
+### Events (backend → frontend)
 
 `issues-updated`, `timer-changed`, `entries-changed`, `auth-changed`, `refresh-status`,
 `idle-prompt`, `exit-requested`, `settings-changed`, `sync-done`, `login-window`.
 
 ## Frontend
 
-- Svelte 5 (Runes), kein Router: `store.view` schaltet zwischen Tickets, Zeiten, Statistik, Einstellungen.
-- `lib/api.ts`: typisierte Wrapper um `invoke`; ohne Tauri (`npm run dev` im Browser) wird
-  automatisch `lib/mock.ts` verwendet, ein In-Memory-Backend mit Beispieldaten
-  (`window.__yatttMock.__simulateIdle()` und `__simulateRestore()` lösen die Dialoge aus).
-- `lib/store.svelte.ts`: globaler Zustand, Event-Abos, Toasts, Sekundentakt für laufende Timer.
-- Diagramme sind eigene SVGs (Balken, Donut, Heatmap); der Stundenzettel ist eine Druckansicht.
+- Svelte 5 (runes), no router: `store.view` switches between Tickets, Times, Statistics, Settings.
+- `lib/api.ts`: typed wrappers around `invoke`; without Tauri (`npm run dev` in the browser),
+  `lib/mock.ts` is used automatically, an in-memory backend with sample data
+  (`window.__yatttMock.__simulateIdle()` and `__simulateRestore()` trigger the dialogs).
+- `lib/store.svelte.ts`: global state, event subscriptions, toasts, one-second tick for running timers.
+- `lib/i18n.svelte.ts`: reactive UI language (`t()`), dictionaries in `lib/locales/de.ts` and `en.ts`;
+  the store applies `behavior.language` whenever settings change.
+- Charts are hand-written SVGs (bars, donut, heatmap); the timesheet is a print view.
 
-## Entscheidungen
+## Decisions
 
-Siehe [PLAN.md](PLAN.md), Abschnitt 9, für die Bewertung der Review-Findings und die daraus
-abgeleiteten Entscheidungen (Cookie-Rotation, verschlüsselte Secrets, Tempo-Cloud-Pfad,
-Shutdown-Hooks, Buchung pro Eintrag).
+See [PLAN.md](PLAN.md), section 9, for the assessment of the review findings and the decisions
+derived from them (cookie rotation, encrypted secrets, Tempo Cloud path, shutdown hooks,
+booking per entry).

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { store } from "../lib/store.svelte";
   import { api, type Issue } from "../lib/api";
+  import { t } from "../lib/i18n.svelte";
   import { formatDuration, relativeTime } from "../lib/format";
   import Icon from "../components/Icon.svelte";
 
@@ -150,7 +151,7 @@
     try {
       const issue = await api.addIssueByKey(addKey.trim());
       addKey = "";
-      store.toast(`${issue.key} hinzugefügt`, "success");
+      store.toast(t("tickets.added", { key: issue.key }), "success");
     } catch (e) {
       store.toast(String(e), "error");
     } finally {
@@ -175,15 +176,15 @@
 
 <div class="view">
   <div class="view-header">
-    <h1>Tickets</h1>
+    <h1>{t("tickets.title")}</h1>
     <span class="badge">{filtered.length}</span>
     <div class="grow"></div>
     {#if refresh}
       <span class="faint small">
-        {#if refresh.inProgress}Aktualisiere …{:else if refresh.lastError}<span class="badge danger" title={refresh.lastError}>Fehler</span>{:else}Aktualisiert {relativeTime(refresh.lastSuccess)}{/if}
+        {#if refresh.inProgress}{t("tickets.refreshing")}{:else if refresh.lastError}<span class="badge danger" title={refresh.lastError}>{t("common.error")}</span>{:else}{t("tickets.updated", { when: relativeTime(refresh.lastSuccess) })}{/if}
       </span>
     {/if}
-    <button class="btn icon" type="button" onclick={doRefresh} disabled={refresh?.inProgress || !store.connected} title="Jetzt aktualisieren" aria-label="Jetzt aktualisieren">
+    <button class="btn icon" type="button" onclick={doRefresh} disabled={refresh?.inProgress || !store.connected} title={t("tickets.refreshNow")} aria-label={t("tickets.refreshNow")}>
       <span class:spin={refresh?.inProgress}><Icon name="refresh" size={16} /></span>
     </button>
   </div>
@@ -191,60 +192,60 @@
   <div class="toolbar no-print">
     <div class="search row grow">
       <Icon name="search" size={15} />
-      <input type="search" placeholder="Suchen (Key oder Titel) …" bind:value={search} />
+      <input type="search" placeholder={t("tickets.search")} bind:value={search} />
     </div>
-    <select bind:value={sprintFilter} title="Sprint">
-      <option value="all">Alle Sprints</option>
+    <select bind:value={sprintFilter} title={t("tickets.sprint")}>
+      <option value="all">{t("tickets.allSprints")}</option>
       {#each sprints as [id, name] (id)}
         <option value={String(id)}>{name}</option>
       {/each}
-      <option value="none">Ohne Sprint</option>
+      <option value="none">{t("tickets.noSprint")}</option>
     </select>
-    <select bind:value={typeFilter} title="Tickettyp">
-      <option value="all">Alle Typen</option>
-      {#each types as t (t)}
-        <option value={t}>{t}</option>
+    <select bind:value={typeFilter} title={t("tickets.type")}>
+      <option value="all">{t("tickets.allTypes")}</option>
+      {#each types as ty (ty)}
+        <option value={ty}>{ty}</option>
       {/each}
     </select>
     {#if components.length}
-      <select bind:value={componentFilter} title="Komponente">
-        <option value="all">Alle Komponenten</option>
+      <select bind:value={componentFilter} title={t("tickets.component")}>
+        <option value="all">{t("tickets.allComponents")}</option>
         {#each components as c (c)}
           <option value={c}>{c}</option>
         {/each}
       </select>
     {/if}
     {#if labels.length}
-      <select bind:value={labelFilter} title="Label">
-        <option value="all">Alle Labels</option>
+      <select bind:value={labelFilter} title={t("tickets.label")}>
+        <option value="all">{t("tickets.allLabels")}</option>
         {#each labels as l (l)}
           <option value={l}>{l}</option>
         {/each}
       </select>
     {/if}
-    <select bind:value={statusFilter} title="Status">
-      <option value="open">Offen</option>
-      <option value="done">Erledigt</option>
-      <option value="all">Alle</option>
+    <select bind:value={statusFilter} title={t("tickets.status")}>
+      <option value="open">{t("tickets.open")}</option>
+      <option value="done">{t("tickets.done")}</option>
+      <option value="all">{t("common.all")}</option>
     </select>
-    <button class="btn sm" class:on={onlyMine} type="button" onclick={() => (onlyMine = !onlyMine)}><Icon name="user" size={14} /> Nur meine</button>
-    <button class="btn sm" class:on={favoritesOnly} type="button" onclick={() => (favoritesOnly = !favoritesOnly)}><Icon name="star" size={14} /> Favoriten</button>
+    <button class="btn sm" class:on={onlyMine} type="button" onclick={() => (onlyMine = !onlyMine)}><Icon name="user" size={14} /> {t("tickets.onlyMine")}</button>
+    <button class="btn sm" class:on={favoritesOnly} type="button" onclick={() => (favoritesOnly = !favoritesOnly)}><Icon name="star" size={14} /> {t("tickets.favorites")}</button>
   </div>
 
   <div class="view-body">
     {#if !store.connected}
       <div class="empty card">
         <Icon name="link" size={28} />
-        <h3>Nicht mit Jira verbunden</h3>
-        <p class="muted">Hinterlege die Jira-URL und melde dich an, damit Projekte und Tickets geladen werden.</p>
-        <button class="btn primary" type="button" onclick={() => (store.view = "settings")}>Zu den Einstellungen</button>
+        <h3>{t("tickets.notConnectedTitle")}</h3>
+        <p class="muted">{t("tickets.notConnectedText")}</p>
+        <button class="btn primary" type="button" onclick={() => (store.view = "settings")}>{t("tickets.toSettings")}</button>
       </div>
     {:else if !hasSelection && store.issues.length === 0}
       <div class="empty card">
         <Icon name="list" size={28} />
-        <h3>Keine Projekte oder Sprints gewählt</h3>
-        <p class="muted">Wähle in den Einstellungen Projekte aus. Die Tickets der offenen Sprints werden dann automatisch geladen.</p>
-        <button class="btn primary" type="button" onclick={() => (store.view = "settings")}>Projekte wählen</button>
+        <h3>{t("tickets.noSelectionTitle")}</h3>
+        <p class="muted">{t("tickets.noSelectionText")}</p>
+        <button class="btn primary" type="button" onclick={() => (store.view = "settings")}>{t("tickets.chooseProjects")}</button>
       </div>
     {:else}
       {#each groups as group (group.key)}
@@ -254,39 +255,39 @@
             <strong>{group.name}</strong>
             <span class="faint mono">{group.key}</span>
             <span class="grow"></span>
-            <span class="faint small">{group.rows.length} Tickets · {formatDuration(group.seconds, store.timeFormat)} h erfasst</span>
+            <span class="faint small">{t("tickets.groupSummary", { n: group.rows.length, duration: formatDuration(group.seconds, store.timeFormat) })}</span>
           </header>
           <div class="rows card">
             {#each group.rows as { issue, depth } (issue.key)}
               {@const running = store.runningFor(issue.key)}
               {@const pct = estimatePct(issue)}
               <div class="issue" class:running={!!running} class:child={depth > 0} style="--c:{group.color}">
-                <button class="star" class:on={issue.favorite} type="button" onclick={() => toggleFavorite(issue)} title={issue.favorite ? "Favorit entfernen" : "Als Favorit markieren"} aria-label="Favorit">
+                <button class="star" class:on={issue.favorite} type="button" onclick={() => toggleFavorite(issue)} title={issue.favorite ? t("tickets.removeFavorite") : t("tickets.markFavorite")} aria-label={t("tickets.favorite")}>
                   <Icon name="star" size={15} />
                 </button>
                 <span class="type {typeClass(issue.issueType)}" title={issue.issueType}>{issue.issueType.slice(0, 1)}</span>
                 <div class="main grow">
                   <div class="row">
-                    <button class="key mono" type="button" onclick={() => openIssue(issue.key)} title="In Jira öffnen">{issue.key}</button>
+                    <button class="key mono" type="button" onclick={() => openIssue(issue.key)} title={t("timer.openInJira")}>{issue.key}</button>
                     <span class="summary ellipsis">{issue.summary}</span>
                   </div>
                   <div class="row meta">
                     <span class="badge" class:success={issue.statusCategory === "done"} class:accent={issue.statusCategory === "indeterminate"}>{issue.status}</span>
                     {#each issue.components as c (c)}
-                      <button class="label comp" class:on={componentFilter === c} type="button" onclick={() => (componentFilter = componentFilter === c ? "all" : c)} title="Komponente – klicken zum Filtern">{c}</button>
+                      <button class="label comp" class:on={componentFilter === c} type="button" onclick={() => (componentFilter = componentFilter === c ? "all" : c)} title={t("tickets.componentFilterTitle")}>{c}</button>
                     {/each}
                     {#each issue.labels as l (l)}
-                      <button class="label" class:on={labelFilter === l} type="button" onclick={() => (labelFilter = labelFilter === l ? "all" : l)} title="Label – klicken zum Filtern">{l}</button>
+                      <button class="label" class:on={labelFilter === l} type="button" onclick={() => (labelFilter = labelFilter === l ? "all" : l)} title={t("tickets.labelFilterTitle")}>{l}</button>
                     {/each}
                     {#if issue.sprintName && (sprintFilter === "all" || sprintFilter === "none")}<span class="faint">{issue.sprintName}</span>{/if}
                     {#if issue.assignee}<span class="faint">· {issue.assignee}</span>{/if}
-                    {#if issue.dueDate}<span class="faint">· fällig {issue.dueDate}</span>{/if}
-                    {#if issue.source === "manual" || issue.source === "tracked"}<span class="faint">· nicht im Sprint</span>{/if}
+                    {#if issue.dueDate}<span class="faint">{t("tickets.due", { date: issue.dueDate })}</span>{/if}
+                    {#if issue.source === "manual" || issue.source === "tracked"}<span class="faint">{t("tickets.notInSprint")}</span>{/if}
                   </div>
                 </div>
                 <div class="budget">
                   {#if pct != null}
-                    <div class="bar" title="{formatDuration(tracked(issue.key))} von {formatDuration(issue.originalEstimateS ?? 0)} h geschätzt">
+                    <div class="bar" title={t("tickets.estimateTitle", { tracked: formatDuration(tracked(issue.key)), estimate: formatDuration(issue.originalEstimateS ?? 0) })}>
                       <div class="fill" class:warn={pct > 80} class:over={pct > 100} style="width:{Math.min(100, pct)}%"></div>
                     </div>
                     <span class="mono small">{formatDuration(tracked(issue.key), store.timeFormat)} / {formatDuration(issue.originalEstimateS ?? 0, store.timeFormat)}</span>
@@ -294,7 +295,7 @@
                     <span class="mono small muted">{tracked(issue.key) ? formatDuration(tracked(issue.key), store.timeFormat) + " h" : ""}</span>
                   {/if}
                 </div>
-                <button class="btn icon" class:running={!!running} type="button" onclick={() => toggle(issue)} title={running ? "Timer stoppen" : "Timer starten"} aria-label={running ? "Timer stoppen" : "Timer starten"}>
+                <button class="btn icon" class:running={!!running} type="button" onclick={() => toggle(issue)} title={running ? t("timer.stop") : t("timer.start")} aria-label={running ? t("timer.stop") : t("timer.start")}>
                   <Icon name={running ? "stop" : "play"} size={16} />
                 </button>
               </div>
@@ -304,13 +305,13 @@
       {/each}
       {#if groups.length === 0}
         <div class="empty card">
-          <p class="muted">Keine Tickets passen zu den Filtern.</p>
+          <p class="muted">{t("tickets.noMatch")}</p>
         </div>
       {/if}
       <div class="add row">
         <Icon name="plus" size={15} />
-        <input type="text" placeholder="Ticket per Key hinzufügen (z. B. ABC-123) …" bind:value={addKey} onkeydown={(e) => e.key === "Enter" && addIssue()} />
-        <button class="btn sm" type="button" onclick={addIssue} disabled={adding || !addKey.trim()}>Hinzufügen</button>
+        <input type="text" placeholder={t("tickets.addPlaceholder")} bind:value={addKey} onkeydown={(e) => e.key === "Enter" && addIssue()} />
+        <button class="btn sm" type="button" onclick={addIssue} disabled={adding || !addKey.trim()}>{t("common.add")}</button>
       </div>
     {/if}
   </div>

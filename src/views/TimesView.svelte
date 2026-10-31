@@ -1,6 +1,7 @@
 <script lang="ts">
   import { store } from "../lib/store.svelte";
   import { api, type TimeEntry } from "../lib/api";
+  import { t } from "../lib/i18n.svelte";
   import { addDays, formatDate, formatDuration, formatSigned, formatTime, startOfDay, startOfWeek, toDateKey } from "../lib/format";
   import Icon from "../components/Icon.svelte";
   import EntryEditor from "../components/EntryEditor.svelte";
@@ -63,16 +64,18 @@
 
   function syncLabel(e: TimeEntry): { text: string; cls: string; title: string } {
     switch (e.syncState) {
-      case "synced":
-        return { text: "gebucht", cls: "success", title: `Jira-Worklog ${e.jiraWorklogId ?? ""}${e.tempoWorklogId ? ", Tempo " + e.tempoWorklogId : ""} – ${formatDuration(e.bookedSeconds ?? 0)} h` };
+      case "synced": {
+        const ids = `${e.jiraWorklogId ?? ""}${e.tempoWorklogId ? ", Tempo " + e.tempoWorklogId : ""}`;
+        return { text: t("sync.synced"), cls: "success", title: t("sync.syncedTitle", { ids, duration: formatDuration(e.bookedSeconds ?? 0) }) };
+      }
       case "pending":
-        return { text: "wird gebucht", cls: "accent", title: "Buchung läuft" };
+        return { text: t("sync.pending"), cls: "accent", title: t("sync.pendingTitle") };
       case "modified":
-        return { text: "geändert", cls: "warning", title: "Nach der Buchung geändert – wird aktualisiert" };
+        return { text: t("sync.modified"), cls: "warning", title: t("sync.modifiedTitle") };
       case "failed":
-        return { text: "Fehler", cls: "danger", title: e.syncError ?? "Buchung fehlgeschlagen" };
+        return { text: t("sync.failed"), cls: "danger", title: e.syncError ?? t("sync.failedTitle") };
       default:
-        return { text: "lokal", cls: "", title: "Noch nicht nach Jira gebucht" };
+        return { text: t("sync.local"), cls: "", title: t("sync.localTitle") };
     }
   }
 
@@ -89,7 +92,7 @@
 
   async function remove(e: TimeEntry) {
     await api.deleteEntry(e.id);
-    store.toast(`Eintrag ${e.issueKey} gelöscht`, "info", { label: "Rückgängig", run: async () => { await api.restoreEntry(e.id); } });
+    store.toast(t("times.deleted", { key: e.issueKey }), "info", { label: t("common.undo"), run: async () => { await api.restoreEntry(e.id); } });
   }
 
   async function duplicate(e: TimeEntry) {
@@ -143,11 +146,11 @@
 
 <div class="view">
   <div class="view-header">
-    <h1>Zeiten</h1>
+    <h1>{t("times.title")}</h1>
     <div class="nav row">
-      <button class="btn icon" type="button" onclick={() => (anchor = addDays(anchor, -7))} aria-label="Vorherige Woche"><Icon name="chevronLeft" /></button>
-      <button class="btn sm" type="button" onclick={() => (anchor = startOfDay(new Date()))}>Heute</button>
-      <button class="btn icon" type="button" onclick={() => (anchor = addDays(anchor, 7))} aria-label="Nächste Woche"><Icon name="chevronRight" /></button>
+      <button class="btn icon" type="button" onclick={() => (anchor = addDays(anchor, -7))} aria-label={t("times.prevWeek")}><Icon name="chevronLeft" /></button>
+      <button class="btn sm" type="button" onclick={() => (anchor = startOfDay(new Date()))}>{t("common.today")}</button>
+      <button class="btn icon" type="button" onclick={() => (anchor = addDays(anchor, 7))} aria-label={t("times.nextWeek")}><Icon name="chevronRight" /></button>
       <span class="range muted">{formatDate(weekStart, { day: "2-digit", month: "2-digit" })} – {formatDate(addDays(weekEnd, -1), { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
     </div>
     <div class="grow"></div>
@@ -158,10 +161,10 @@
       {/if}
     </div>
     <div class="seg">
-      <button class:on={mode === "list"} type="button" onclick={() => (mode = "list")}>Liste</button>
-      <button class:on={mode === "week"} type="button" onclick={() => (mode = "week")}>Woche</button>
+      <button class:on={mode === "list"} type="button" onclick={() => (mode = "list")}>{t("times.list")}</button>
+      <button class:on={mode === "week"} type="button" onclick={() => (mode = "week")}>{t("times.week")}</button>
     </div>
-    <button class="btn primary sm" type="button" onclick={() => newEntry()}><Icon name="plus" size={14} /> Eintrag</button>
+    <button class="btn primary sm" type="button" onclick={() => newEntry()}><Icon name="plus" size={14} /> {t("times.entry")}</button>
   </div>
 
   <div class="view-body">
@@ -174,14 +177,14 @@
           <section class="day" class:today={key === todayKey}>
             <header class="day-head">
               <strong>{formatDate(day)}</strong>
-              {#if key === todayKey}<span class="badge accent">Heute</span>{/if}
+              {#if key === todayKey}<span class="badge accent">{t("common.today")}</span>{/if}
               <span class="grow"></span>
               {#if tgt > 0 && key <= todayKey}
-                <span class="faint small">Soll {formatDuration(tgt, store.timeFormat)}</span>
+                <span class="faint small">{t("times.target", { duration: formatDuration(tgt, store.timeFormat) })}</span>
                 <span class="badge" class:success={bucket.seconds >= tgt} class:warning={bucket.seconds < tgt && bucket.seconds > 0} class:danger={bucket.seconds === 0 && key < todayKey}>{formatSigned(bucket.seconds - tgt, store.timeFormat)}</span>
               {/if}
               <span class="mono total">{formatDuration(bucket.seconds, store.timeFormat)}</span>
-              <button class="btn ghost icon sm" type="button" onclick={() => newEntry(day)} title="Eintrag an diesem Tag anlegen" aria-label="Eintrag anlegen"><Icon name="plus" size={14} /></button>
+              <button class="btn ghost icon sm" type="button" onclick={() => newEntry(day)} title={t("times.addOnDay")} aria-label={t("times.addEntry")}><Icon name="plus" size={14} /></button>
             </header>
             {#if bucket.entries.length}
               <div class="card">
@@ -189,7 +192,7 @@
                   {@const issue = store.issue(e.issueKey)}
                   {@const sync = syncLabel(e)}
                   <div class="entry" class:running={!e.endedAt}>
-                    <span class="time mono">{formatTime(e.startedAt)} – {e.endedAt ? formatTime(e.endedAt) : "läuft"}</span>
+                    <span class="time mono">{formatTime(e.startedAt)} – {e.endedAt ? formatTime(e.endedAt) : t("common.running")}</span>
                     <span class="dur mono">{formatDuration(duration(e), store.timeFormat)}</span>
                     <span class="dot" style="background:{store.color(issue?.projectKey ?? e.issueKey.split('-')[0])}"></span>
                     <div class="main grow">
@@ -199,23 +202,23 @@
                       </div>
                       {#if e.note}<div class="note ellipsis">{e.note}</div>{/if}
                     </div>
-                    {#if !e.billable}<span class="badge" title="Nicht abrechenbar">n. abr.</span>{/if}
+                    {#if !e.billable}<span class="badge" title={t("times.nonBillableTitle")}>{t("times.nonBillable")}</span>{/if}
                     <span class="badge {sync.cls}" title={sync.title}>{sync.text}</span>
                     <div class="actions row">
                       {#if e.endedAt && e.syncState !== "synced" && e.syncState !== "pending"}
-                        <button class="btn ghost icon sm" type="button" onclick={() => book([e.id])} title="Nach Jira buchen" aria-label="Buchen" disabled={booking}><Icon name="upload" size={14} /></button>
+                        <button class="btn ghost icon sm" type="button" onclick={() => book([e.id])} title={t("times.book")} aria-label={t("times.bookShort")} disabled={booking}><Icon name="upload" size={14} /></button>
                       {/if}
-                      <button class="btn ghost icon sm" type="button" onclick={() => (editing = e)} title="Bearbeiten" aria-label="Bearbeiten"><Icon name="edit" size={14} /></button>
+                      <button class="btn ghost icon sm" type="button" onclick={() => (editing = e)} title={t("times.edit")} aria-label={t("times.edit")}><Icon name="edit" size={14} /></button>
                       {#if e.endedAt}
-                        <button class="btn ghost icon sm" type="button" onclick={() => duplicate(e)} title="Duplizieren" aria-label="Duplizieren"><Icon name="copy" size={14} /></button>
+                        <button class="btn ghost icon sm" type="button" onclick={() => duplicate(e)} title={t("times.duplicate")} aria-label={t("times.duplicate")}><Icon name="copy" size={14} /></button>
                       {/if}
-                      <button class="btn ghost icon sm danger" type="button" onclick={() => remove(e)} title="Löschen" aria-label="Löschen"><Icon name="trash" size={14} /></button>
+                      <button class="btn ghost icon sm danger" type="button" onclick={() => remove(e)} title={t("times.delete")} aria-label={t("times.delete")}><Icon name="trash" size={14} /></button>
                     </div>
                   </div>
                 {/each}
               </div>
             {:else}
-              <div class="faint small nothing">Keine Zeiten erfasst.</div>
+              <div class="faint small nothing">{t("times.nothing")}</div>
             {/if}
           </section>
         {/if}
@@ -248,7 +251,7 @@
                 <div class="nowline" style="top:{nowLine()}px"></div>
               {/if}
               {#each byDay.get(key)?.entries ?? [] as e (e.id)}
-                <button class="block" class:running={!e.endedAt} style={blockStyle(e, day)} type="button" onclick={() => (editing = e)} title="{e.issueKey} {formatTime(e.startedAt)}–{e.endedAt ? formatTime(e.endedAt) : 'läuft'}{e.note ? ' · ' + e.note : ''}">
+                <button class="block" class:running={!e.endedAt} style={blockStyle(e, day)} type="button" onclick={() => (editing = e)} title="{e.issueKey} {formatTime(e.startedAt)}–{e.endedAt ? formatTime(e.endedAt) : t('common.running')}{e.note ? ' · ' + e.note : ''}">
                   <span class="mono">{e.issueKey}</span>
                   <span class="mono small">{formatDuration(duration(e), store.timeFormat)}</span>
                 </button>
@@ -262,12 +265,12 @@
 
   <footer class="foot no-print">
     <span class="muted small">
-      {#if unbooked.length}{unbooked.length} ungebuchte {unbooked.length === 1 ? "Eintrag" : "Einträge"} in dieser Woche{:else}Alle abgeschlossenen Einträge dieser Woche sind gebucht.{/if}
-      {#if loading} · lade …{/if}
+      {#if unbooked.length}{unbooked.length === 1 ? t("times.unbookedOne") : t("times.unbookedMany", { n: unbooked.length })}{:else}{t("times.allBooked")}{/if}
+      {#if loading} {t("times.loading")}{/if}
     </span>
     <span class="grow"></span>
-    <button class="btn sm" type="button" onclick={() => api.syncNow()} disabled={!store.connected} title="Ausstehende Buchungen und Löschungen übertragen"><Icon name="refresh" size={14} /> Synchronisieren</button>
-    <button class="btn primary sm" type="button" onclick={() => book(unbooked.map((e) => e.id))} disabled={!unbooked.length || booking || !store.connected}><Icon name="upload" size={14} /> Woche buchen</button>
+    <button class="btn sm" type="button" onclick={() => api.syncNow()} disabled={!store.connected} title={t("times.syncTitle")}><Icon name="refresh" size={14} /> {t("times.sync")}</button>
+    <button class="btn primary sm" type="button" onclick={() => book(unbooked.map((e) => e.id))} disabled={!unbooked.length || booking || !store.connected}><Icon name="upload" size={14} /> {t("times.bookWeek")}</button>
   </footer>
 </div>
 

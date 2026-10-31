@@ -1,6 +1,7 @@
 <script lang="ts">
   import { store } from "../lib/store.svelte";
   import { api, type AppInfo, type AuthMethod, type IssueType, type Project, type ProjectFilter, type Settings, type Sprint } from "../lib/api";
+  import { t, weekdayShort, type Key } from "../lib/i18n.svelte";
   import { formatDate, toDateKey, addDays } from "../lib/format";
   import Icon from "../components/Icon.svelte";
 
@@ -8,14 +9,14 @@
   // Browser mock only: ?tab=selection opens a settings tab directly (used for screenshots).
   const requestedTab = typeof window !== "undefined" && !("__TAURI_INTERNALS__" in window) ? new URLSearchParams(location.search).get("tab") : null;
   let tab = $state<Tab>((["connection", "selection", "filter", "time", "behavior", "tempo", "info"].includes(requestedTab ?? "") ? requestedTab : "connection") as Tab);
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "connection", label: "Verbindung" },
-    { id: "selection", label: "Projekte & Sprints" },
-    { id: "filter", label: "Tickettypen" },
-    { id: "time", label: "Zeit & Arbeitszeit" },
-    { id: "behavior", label: "Verhalten" },
-    { id: "tempo", label: "Tempo & Buchung" },
-    { id: "info", label: "Info" },
+  const tabs: { id: Tab; label: Key }[] = [
+    { id: "connection", label: "settings.tab.connection" },
+    { id: "selection", label: "settings.tab.selection" },
+    { id: "filter", label: "settings.tab.filter" },
+    { id: "time", label: "settings.tab.time" },
+    { id: "behavior", label: "settings.tab.behavior" },
+    { id: "tempo", label: "settings.tab.tempo" },
+    { id: "info", label: "settings.tab.info" },
   ];
 
   // ---- draft handling: edits go to a local copy and are saved debounced
@@ -55,12 +56,30 @@
   let busy = $state(false);
   let authError = $state("");
   const auth = $derived(store.auth);
-  const methodHelp: Record<AuthMethod, string> = {
-    browserSession: "Öffnet die Jira-Anmeldeseite in einem eigenen Fenster. SSO und ein zweiter Faktor funktionieren wie im Browser. Es wird nur die Sitzung gespeichert, kein Passwort.",
-    password: "Für Jira Data Center ohne SSO. Benutzername und Passwort werden verschlüsselt lokal gespeichert.",
-    personalAccessToken: "Für Jira Data Center: Personal Access Token aus dem Profil (Profil → Persönliche Zugangstoken).",
-    apiToken: "Für Jira Cloud: E-Mail-Adresse und API-Token von id.atlassian.com.",
+  const authMethods: [AuthMethod, Key][] = [
+    ["browserSession", "settings.conn.browser"],
+    ["password", "settings.conn.password"],
+    ["personalAccessToken", "settings.conn.pat"],
+    ["apiToken", "settings.conn.apiToken"],
+  ];
+  const methodHelp: Record<AuthMethod, Key> = {
+    browserSession: "settings.conn.help.browserSession",
+    password: "settings.conn.help.password",
+    personalAccessToken: "settings.conn.help.personalAccessToken",
+    apiToken: "settings.conn.help.apiToken",
   };
+  function viaLabel(method: string | null): string {
+    switch (method) {
+      case "cookies":
+        return t("settings.conn.viaCookies");
+      case "basic":
+        return t("settings.conn.viaBasic");
+      case "bearer":
+        return t("settings.conn.viaBearer");
+      default:
+        return t("settings.conn.viaApiToken");
+    }
+  }
 
   async function connect() {
     if (!draft) return;
@@ -86,7 +105,7 @@
           break;
       }
       store.auth = await api.getAuthStatus();
-      store.toast(`Angemeldet als ${store.auth.user?.displayName ?? "?"}`, "success");
+      store.toast(t("settings.conn.signedInAs", { name: store.auth.user?.displayName ?? "?" }), "success");
       await store.reloadIssues();
     } catch (e) {
       authError = String(e);
@@ -148,9 +167,9 @@
 
   // ---- filters per project: labels and/or components (projects shared by several teams)
   type FilterKind = "labels" | "components";
-  const filterKinds: [FilterKind, string][] = [
-    ["components", "Komponenten"],
-    ["labels", "Labels"],
+  const filterKinds: [FilterKind, Key][] = [
+    ["components", "settings.sel.components"],
+    ["labels", "settings.sel.labels"],
   ];
   let filterQuery = $state<Record<string, string>>({});
   let filterSuggestions = $state<Record<string, string[]>>({});
@@ -265,6 +284,9 @@
       store.toast(String(e), "error");
     }
   }
+  function sprintState(state: string): string {
+    return state === "active" ? t("settings.sel.sprintActive") : state === "future" ? t("settings.sel.sprintFuture") : t("settings.sel.sprintClosed");
+  }
 
   $effect(() => {
     if (tab === "selection" && store.connected) {
@@ -277,23 +299,28 @@
   let issueTypes = $state<IssueType[]>([]);
   $effect(() => {
     if (tab === "filter") {
-      if (store.connected) api.listIssueTypes().then((t) => (issueTypes = t)).catch(() => {});
+      if (store.connected) api.listIssueTypes().then((ty) => (issueTypes = ty)).catch(() => {});
       if (!issueTypes.length) issueTypes = [...new Set(store.issues.map((i) => i.issueType))].map((n, i) => ({ id: String(i), name: n, subtask: false, iconUrl: null }));
     }
   });
   const allTypeNames = $derived.by(() => {
-    const names = new Set<string>(issueTypes.map((t) => t.name));
+    const names = new Set<string>(issueTypes.map((ty) => ty.name));
     for (const n of draft?.selection.excludedIssueTypes ?? []) names.add(n);
     return [...names].sort();
   });
   function toggleType(name: string) {
     if (!draft) return;
     const list = draft.selection.excludedIssueTypes;
-    draft.selection.excludedIssueTypes = list.includes(name) ? list.filter((t) => t !== name) : [...list, name];
+    draft.selection.excludedIssueTypes = list.includes(name) ? list.filter((x) => x !== name) : [...list, name];
     change();
   }
 
   // ---- tempo
+  const tempoModes: [Settings["tempo"]["mode"], Key, Key][] = [
+    ["jiraWorklog", "settings.tempo.jiraWorklog", "settings.tempo.jiraWorklogHelp"],
+    ["tempoDataCenter", "settings.tempo.tempoDC", "settings.tempo.tempoDCHelp"],
+    ["tempoCloud", "settings.tempo.tempoCloud", "settings.tempo.tempoCloudHelp"],
+  ];
   let tempoToken = $state("");
   let tempoBusy = $state(false);
   async function saveTempoToken(clear = false) {
@@ -302,7 +329,7 @@
       await api.setTempoCloudToken(clear ? null : tempoToken);
       tempoToken = "";
       store.settings = await api.getSettings();
-      store.toast(clear ? "Tempo-Token entfernt" : "Tempo-Token gespeichert", "success");
+      store.toast(clear ? t("settings.tempo.tokenRemoved") : t("settings.tempo.tokenSaved"), "success");
     } catch (e) {
       store.toast(String(e), "error");
     } finally {
@@ -322,72 +349,70 @@
     importing = true;
     try {
       const n = await api.importWorklogs(importFrom, importTo);
-      store.toast(`${n} Worklogs importiert`, "success");
+      store.toast(t("settings.info.imported", { n }), "success");
     } catch (e) {
       store.toast(String(e), "error");
     } finally {
       importing = false;
     }
   }
-
-  const weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 </script>
 
 <div class="view">
   <div class="view-header">
-    <h1>Einstellungen</h1>
+    <h1>{t("settings.title")}</h1>
     <div class="grow"></div>
-    {#if dirty}<span class="faint">Speichere …</span>{/if}
+    {#if dirty}<span class="faint">{t("settings.saving")}</span>{/if}
   </div>
   <div class="layout">
     <nav class="tabs">
-      {#each tabs as t (t.id)}
-        <button class:on={tab === t.id} type="button" onclick={() => (tab = t.id)}>{t.label}</button>
+      {#each tabs as tb (tb.id)}
+        <button class:on={tab === tb.id} type="button" onclick={() => (tab = tb.id)}>{t(tb.label)}</button>
       {/each}
     </nav>
     <div class="pane">
       {#if !draft}
-        <p class="faint">Lade …</p>
+        <p class="faint">{t("app.loading")}</p>
       {:else if tab === "connection"}
         <section class="card block">
-          <h3>Jira-Verbindung</h3>
+          <h3>{t("settings.conn.title")}</h3>
           <div class="field">
-            <label for="jira-url">Jira-URL</label>
-            <input id="jira-url" type="url" placeholder="https://jira.firma.de oder https://firma.atlassian.net" bind:value={draft.jira.baseUrl} oninput={change} />
-            <span class="hint">Jira Cloud: nur die Domain, z. B. https://firma.atlassian.net (ohne /jira). Data Center ggf. mit Kontextpfad, z. B. https://tools.firma.de/jira. Eingefügte Ticket- oder Board-Links werden automatisch gekürzt.</span>
+            <label for="jira-url">{t("settings.conn.url")}</label>
+            <input id="jira-url" type="url" placeholder={t("settings.conn.urlPlaceholder")} bind:value={draft.jira.baseUrl} oninput={change} />
+            <span class="hint">{t("settings.conn.urlHint")}</span>
           </div>
           <div class="field">
-            <span class="label-text">Anmeldeart</span>
-            {#each [["browserSession", "Browser-Anmeldung (SSO, 2FA)"], ["password", "Benutzername und Passwort"], ["personalAccessToken", "Personal Access Token (Data Center)"], ["apiToken", "E-Mail und API-Token (Cloud)"]] as [id, label] (id)}
+            <span class="label-text">{t("settings.conn.method")}</span>
+            {#each authMethods as [id, label] (id)}
               <label class="radio">
                 <input type="radio" name="auth" value={id} bind:group={draft.jira.authMethod} onchange={change} />
-                <span>{label}</span>
+                <span>{t(label)}</span>
               </label>
             {/each}
-            <span class="hint">{methodHelp[draft.jira.authMethod]}</span>
+            <span class="hint">{t(methodHelp[draft.jira.authMethod])}</span>
           </div>
           {#if draft.jira.authMethod === "password"}
             <div class="two">
-              <div class="field"><label for="u">Benutzername</label><input id="u" type="text" bind:value={username} autocomplete="username" /></div>
-              <div class="field"><label for="p">Passwort</label><input id="p" type="password" bind:value={password} autocomplete="current-password" onkeydown={(e) => e.key === "Enter" && connect()} /></div>
+              <div class="field"><label for="u">{t("settings.conn.username")}</label><input id="u" type="text" bind:value={username} autocomplete="username" /></div>
+              <div class="field"><label for="p">{t("settings.conn.passwordLabel")}</label><input id="p" type="password" bind:value={password} autocomplete="current-password" onkeydown={(e) => e.key === "Enter" && connect()} /></div>
             </div>
           {:else if draft.jira.authMethod === "personalAccessToken"}
-            <div class="field"><label for="t">Personal Access Token</label><input id="t" type="password" bind:value={token} onkeydown={(e) => e.key === "Enter" && connect()} /></div>
+            <div class="field"><label for="t">{t("settings.conn.patLabel")}</label><input id="t" type="password" bind:value={token} onkeydown={(e) => e.key === "Enter" && connect()} /></div>
           {:else if draft.jira.authMethod === "apiToken"}
             <div class="two">
-              <div class="field"><label for="e">E-Mail</label><input id="e" type="email" bind:value={email} /></div>
-              <div class="field"><label for="t2">API-Token</label><input id="t2" type="password" bind:value={token} onkeydown={(e) => e.key === "Enter" && connect()} /></div>
+              <div class="field"><label for="e">{t("settings.conn.email")}</label><input id="e" type="email" bind:value={email} /></div>
+              <div class="field"><label for="t2">{t("settings.conn.apiTokenLabel")}</label><input id="t2" type="password" bind:value={token} onkeydown={(e) => e.key === "Enter" && connect()} /></div>
             </div>
           {/if}
           {#if authError}<div class="error"><Icon name="warning" size={14} /> {authError}</div>{/if}
           <div class="row wrap">
             <button class="btn primary" type="button" onclick={connect} disabled={busy || !draft.jira.baseUrl}>
               {#if busy}<span class="spin"><Icon name="refresh" size={14} /></span>{/if}
-              {auth.authenticated ? "Erneut anmelden" : "Anmelden"}
+              {auth.authenticated ? t("settings.conn.signInAgain") : t("settings.conn.signIn")}
             </button>
             {#if store.loginWindowOpen}
-              <button class="btn" type="button" onclick={() => api.cancelBrowserLogin()}>Anmeldefenster schließen</button>
-              <span class="faint">Bitte im geöffneten Fenster bei Jira anmelden …</span>
+              <button class="btn" type="button" onclick={() => api.cancelBrowserLogin()}>{t("settings.conn.closeLoginWindow")}</button>
+              <span class="faint">{t("settings.conn.loginHint")}</span>
             {/if}
           </div>
           {#if store.loginWindowOpen && store.loginProgress}
@@ -395,45 +420,45 @@
           {/if}
           <div class="row wrap" style="display:none">
             {#if auth.authenticated}
-              <button class="btn" type="button" onclick={disconnect}>Abmelden</button>
+              <button class="btn" type="button" onclick={disconnect}>{t("settings.conn.signOut")}</button>
             {/if}
           </div>
         </section>
         <section class="card block status">
-          <h3>Status</h3>
+          <h3>{t("settings.conn.status")}</h3>
           {#if auth.authenticated && auth.user}
             <div class="row"><span class="dot" style="background: var(--success)"></span><strong>{auth.user.displayName}</strong><span class="muted">{auth.user.email ?? ""}</span></div>
             {#if auth.server}
-              <div class="muted">{auth.server.serverTitle ?? auth.server.baseUrl} · Jira {auth.server.deployment === "cloud" ? "Cloud" : "Data Center"} {auth.server.version}</div>
+              <div class="muted">{auth.server.serverTitle ?? auth.server.baseUrl} · Jira {auth.server.deployment === "cloud" ? t("settings.conn.cloud") : t("settings.conn.dataCenter")} {auth.server.version}</div>
             {/if}
-            <div class="muted">Anmeldung über {auth.method === "cookies" ? "Browser-Sitzung" : auth.method === "basic" ? "Benutzername/Passwort" : auth.method === "bearer" ? "Personal Access Token" : "API-Token"}</div>
+            <div class="muted">{t("settings.conn.via", { method: viaLabel(auth.method) })}</div>
           {:else}
-            <div class="row"><span class="dot" style="background: var(--warning)"></span><span>Nicht angemeldet</span></div>
+            <div class="row"><span class="dot" style="background: var(--warning)"></span><span>{t("settings.conn.notSignedIn")}</span></div>
             {#if auth.message}<div class="muted">{auth.message}</div>{/if}
           {/if}
         </section>
       {:else if tab === "selection"}
         {#if !store.connected}
-          <p class="muted">Bitte zuerst mit Jira verbinden.</p>
+          <p class="muted">{t("settings.sel.connectFirst")}</p>
         {:else}
           <section class="card block">
-            <h3>Projekte</h3>
-            <p class="hint">Die Tickets der offenen Sprints aller gewählten Projekte werden automatisch geladen.</p>
+            <h3>{t("settings.sel.projects")}</h3>
+            <p class="hint">{t("settings.sel.projectsHint")}</p>
             {#if selectedProjects.length}
               <div class="chips">
                 {#each selectedProjects as p (p.key)}
                   <span class="chip" style="--c:{store.color(p.key)}">
-                    <input type="color" value={store.color(p.key)} onchange={(e) => setColor(p.key, (e.target as HTMLInputElement).value)} title="Farbe" />
+                    <input type="color" value={store.color(p.key)} onchange={(e) => setColor(p.key, (e.target as HTMLInputElement).value)} title={t("settings.sel.color")} />
                     <span class="mono">{p.key}</span>
                     <span class="ellipsis">{p.name}</span>
-                    <button type="button" onclick={() => toggleProject({ ...p, selected: true })} aria-label="Entfernen"><Icon name="x" size={12} /></button>
+                    <button type="button" onclick={() => toggleProject({ ...p, selected: true })} aria-label={t("common.remove")}><Icon name="x" size={12} /></button>
                   </span>
                 {/each}
               </div>
             {/if}
             <div class="search row">
               <Icon name="search" size={15} />
-              <input type="search" placeholder="Projekte suchen (Key oder Name) …" bind:value={projectQuery} oninput={onProjectQuery} />
+              <input type="search" placeholder={t("settings.sel.searchProjects")} bind:value={projectQuery} oninput={onProjectQuery} />
               {#if projectsLoading}<span class="spin"><Icon name="refresh" size={14} /></span>{/if}
             </div>
             <ul class="list">
@@ -446,16 +471,13 @@
                   </label>
                 </li>
               {/each}
-              {#if !projectResults.length && !projectsLoading}<li class="faint">Keine Projekte gefunden.</li>{/if}
+              {#if !projectResults.length && !projectsLoading}<li class="faint">{t("settings.sel.noProjects")}</li>{/if}
             </ul>
           </section>
           {#if selectedProjects.length && draft}
             <section class="card block">
-              <h3>Filter je Projekt</h3>
-              <p class="hint">
-                Für Projekte, an denen mehrere Teams arbeiten: Mit Komponenten und/oder Labels werden aus dem Projekt nur passende
-                Tickets geladen. Projekte ohne Einträge bleiben ungefiltert. Komponenten dürfen Leerzeichen enthalten, Labels nicht.
-              </p>
+              <h3>{t("settings.sel.filterTitle")}</h3>
+              <p class="hint">{t("settings.sel.filterHint")}</p>
               {#each selectedProjects as p (p.key)}
                 {@const filter = projectFilter(p.key)}
                 <div class="filter-row">
@@ -470,14 +492,14 @@
                       {@const picked = chosenValues(kind, p.key)}
                       {@const suggestions = (filterSuggestions[id] ?? []).filter((v) => !picked.includes(v))}
                       <div class="filter-kind">
-                        <span class="kind-title">{title}</span>
+                        <span class="kind-title">{t(title)}</span>
                         <div class="grow">
                           {#if picked.length}
                             <div class="chips">
                               {#each picked as v (v)}
                                 <span class="chip">
                                   <span>{v}</span>
-                                  <button type="button" onclick={() => removeValue(kind, p.key, v)} aria-label="Entfernen"><Icon name="x" size={12} /></button>
+                                  <button type="button" onclick={() => removeValue(kind, p.key, v)} aria-label={t("common.remove")}><Icon name="x" size={12} /></button>
                                 </span>
                               {/each}
                             </div>
@@ -486,7 +508,7 @@
                             <Icon name="search" size={15} />
                             <input
                               type="search"
-                              placeholder={kind === "components" ? `Komponente von ${p.key} wählen oder eingeben …` : `Label für ${p.key} suchen oder eingeben …`}
+                              placeholder={kind === "components" ? t("settings.sel.componentPlaceholder", { key: p.key }) : t("settings.sel.labelPlaceholder", { key: p.key })}
                               value={filterQuery[id] ?? ""}
                               oninput={(e) => onFilterQuery(kind, p.key, (e.target as HTMLInputElement).value)}
                               onkeydown={(e) => onFilterKey(e, kind, p.key)}
@@ -511,12 +533,12 @@
                     {/each}
                     {#if filter.labels.length && filter.components.length}
                       <label class="row match-mode">
-                        <span>Ein Ticket muss</span>
+                        <span>{t("settings.sel.matchPrefix")}</span>
                         <select value={filter.matchAll ? "all" : "any"} onchange={(e) => setFilter(p.key, { matchAll: (e.target as HTMLSelectElement).value === "all" })}>
-                          <option value="all">Komponente und Label</option>
-                          <option value="any">Komponente oder Label</option>
+                          <option value="all">{t("settings.sel.matchAll")}</option>
+                          <option value="any">{t("settings.sel.matchAny")}</option>
                         </select>
-                        <span>erfüllen.</span>
+                        {#if t("settings.sel.matchSuffix")}<span>{t("settings.sel.matchSuffix")}</span>{/if}
                       </label>
                     {/if}
                   </div>
@@ -525,15 +547,15 @@
             </section>
           {/if}
           <section class="card block">
-            <h3>Zusätzliche Sprints</h3>
-            <p class="hint">Sprints der gewählten Projekte, deren Tickets zusätzlich geladen werden sollen (z. B. der nächste Sprint).</p>
+            <h3>{t("settings.sel.sprintsTitle")}</h3>
+            <p class="hint">{t("settings.sel.sprintsHint")}</p>
             {#if selectedSprints.length}
               <div class="chips">
                 {#each selectedSprints as s (s.id)}
                   <span class="chip">
                     <span>{s.name}</span>
-                    <span class="badge" class:success={s.state === "active"}>{s.state === "active" ? "aktiv" : s.state === "future" ? "geplant" : "abgeschlossen"}</span>
-                    <button type="button" onclick={() => toggleSprint(s)} aria-label="Entfernen"><Icon name="x" size={12} /></button>
+                    <span class="badge" class:success={s.state === "active"}>{sprintState(s.state)}</span>
+                    <button type="button" onclick={() => toggleSprint(s)} aria-label={t("common.remove")}><Icon name="x" size={12} /></button>
                   </span>
                 {/each}
               </div>
@@ -541,10 +563,10 @@
             <div class="row wrap">
               <div class="search row grow">
                 <Icon name="search" size={15} />
-                <input type="search" placeholder="Sprints suchen …" bind:value={sprintQuery} oninput={onSprintQuery} disabled={!selectedProjects.length} />
+                <input type="search" placeholder={t("settings.sel.searchSprints")} bind:value={sprintQuery} oninput={onSprintQuery} disabled={!selectedProjects.length} />
                 {#if sprintsLoading}<span class="spin"><Icon name="refresh" size={14} /></span>{/if}
               </div>
-              <label class="check" style="margin:0"><input type="checkbox" bind:checked={includeClosed} onchange={searchSprints} /><span>Abgeschlossene einbeziehen</span></label>
+              <label class="check" style="margin:0"><input type="checkbox" bind:checked={includeClosed} onchange={searchSprints} /><span>{t("settings.sel.includeClosed")}</span></label>
             </div>
             <ul class="list">
               {#each sprintResults as s (s.id)}
@@ -552,217 +574,226 @@
                   <label class="row">
                     <input type="checkbox" checked={selectedSprints.some((x) => x.id === s.id)} onchange={() => toggleSprint(s)} />
                     <span class="grow">{s.name}</span>
-                    <span class="badge" class:success={s.state === "active"}>{s.state === "active" ? "aktiv" : s.state === "future" ? "geplant" : "abgeschlossen"}</span>
+                    <span class="badge" class:success={s.state === "active"}>{sprintState(s.state)}</span>
                     {#if s.startDate}<span class="faint small">{formatDate(s.startDate, { day: "2-digit", month: "2-digit" })}{s.endDate ? " – " + formatDate(s.endDate, { day: "2-digit", month: "2-digit" }) : ""}</span>{/if}
                   </label>
                 </li>
               {/each}
               {#if !sprintResults.length && !sprintsLoading}
-                <li class="faint">{selectedProjects.length ? "Keine Sprints gefunden. Kanban-Boards haben keine Sprints." : "Zuerst Projekte wählen."}</li>
+                <li class="faint">{selectedProjects.length ? t("settings.sel.noSprints") : t("settings.sel.selectProjectsFirst")}</li>
               {/if}
             </ul>
           </section>
           <section class="card block">
-            <h3>Ticketauswahl</h3>
-            <label class="check"><input type="checkbox" bind:checked={draft.selection.includeOpenSprints} onchange={change} /><span>Tickets der offenen Sprints aller gewählten Projekte immer laden</span></label>
-            <label class="check"><input type="checkbox" bind:checked={draft.selection.onlyAssignedToMe} onchange={change} /><span>Nur mir zugewiesene Tickets laden</span></label>
-            <label class="check"><input type="checkbox" bind:checked={draft.selection.hideDone} onchange={change} /><span>Erledigte Tickets nicht laden <span class="hint">Tickets mit Zeiten bleiben sichtbar.</span></span></label>
+            <h3>{t("settings.sel.selectionTitle")}</h3>
+            <label class="check"><input type="checkbox" bind:checked={draft.selection.includeOpenSprints} onchange={change} /><span>{t("settings.sel.includeOpenSprints")}</span></label>
+            <label class="check"><input type="checkbox" bind:checked={draft.selection.onlyAssignedToMe} onchange={change} /><span>{t("settings.sel.onlyMine")}</span></label>
+            <label class="check"><input type="checkbox" bind:checked={draft.selection.hideDone} onchange={change} /><span>{t("settings.sel.hideDone")} <span class="hint">{t("settings.sel.hideDoneHint")}</span></span></label>
             <div class="field">
-              <label for="jql">Zusätzliche JQL-Bedingung (optional)</label>
-              <input id="jql" type="text" placeholder='z. B. labels = "Team-A" AND priority = High' bind:value={draft.selection.extraJql} oninput={change} />
-              <p class="hint">Eine vollständige JQL-Bedingung, die an alle gewählten Projekte angehängt wird. Komponenten oder Labels für ein einzelnes Projekt trägst du oben unter „Filter je Projekt“ ein.</p>
+              <label for="jql">{t("settings.sel.jql")}</label>
+              <input id="jql" type="text" placeholder={t("settings.sel.jqlPlaceholder")} bind:value={draft.selection.extraJql} oninput={change} />
+              <p class="hint">{t("settings.sel.jqlHint")}</p>
             </div>
           </section>
         {/if}
       {:else if tab === "filter"}
         <section class="card block">
-          <h3>Tickettypen ausblenden</h3>
-          <p class="hint">Angehakte Typen werden nicht geladen (z. B. Epics).</p>
+          <h3>{t("settings.types.title")}</h3>
+          <p class="hint">{t("settings.types.hint")}</p>
           {#each allTypeNames as name (name)}
             <label class="check"><input type="checkbox" checked={draft.selection.excludedIssueTypes.includes(name)} onchange={() => toggleType(name)} /><span>{name}</span></label>
           {/each}
-          {#if !allTypeNames.length}<p class="faint">Keine Tickettypen bekannt. Nach der Anmeldung werden sie geladen.</p>{/if}
+          {#if !allTypeNames.length}<p class="faint">{t("settings.types.none")}</p>{/if}
         </section>
       {:else if tab === "time"}
         <section class="card block">
-          <h3>Arbeitszeit</h3>
+          <h3>{t("settings.time.work")}</h3>
           <div class="weekdays">
-            {#each weekdays as wd, i (wd)}
+            {#each [0, 1, 2, 3, 4, 5, 6] as i (i)}
               <div class="field">
-                <label for="wd{i}">{wd}</label>
+                <label for="wd{i}">{weekdayShort(i)}</label>
                 <input id="wd{i}" type="number" min="0" max="24" step="0.5" bind:value={draft.work.hoursPerWeekday[i]} onchange={change} />
               </div>
             {/each}
           </div>
           <div class="two">
             <div class="field">
-              <label for="fdow">Wochenbeginn</label>
+              <label for="fdow">{t("settings.time.firstDay")}</label>
               <select id="fdow" bind:value={draft.work.firstDayOfWeek} onchange={change}>
-                <option value={0}>Montag</option>
-                <option value={6}>Sonntag</option>
+                <option value={0}>{t("settings.time.monday")}</option>
+                <option value={6}>{t("settings.time.sunday")}</option>
               </select>
             </div>
             <div class="field">
-              <label for="tfmt">Zeitformat</label>
+              <label for="tfmt">{t("settings.time.format")}</label>
               <select id="tfmt" bind:value={draft.work.timeFormat} onchange={change}>
-                <option value="hoursMinutes">Stunden:Minuten (1:30)</option>
-                <option value="decimal">Dezimal (1,50)</option>
+                <option value="hoursMinutes">{t("settings.time.formatHM")}</option>
+                <option value="decimal">{t("settings.time.formatDecimal")}</option>
               </select>
             </div>
           </div>
         </section>
         <section class="card block">
-          <h3>Timer</h3>
+          <h3>{t("settings.time.timer")}</h3>
           <div class="two">
             <div class="field">
-              <label for="idle">Inaktivität erkennen nach (Minuten, 0 = aus)</label>
+              <label for="idle">{t("settings.time.idle")}</label>
               <input id="idle" type="number" min="0" max="120" bind:value={draft.timer.idleTimeoutMinutes} onchange={change} />
-              <span class="hint">Bei Rückkehr wird gefragt, was mit der Zeit passieren soll. Gilt auch nach dem Ruhezustand.</span>
+              <span class="hint">{t("settings.time.idleHint")}</span>
             </div>
             <div class="field">
-              <label for="short">Kurze Einträge verwerfen (Sekunden, 0 = nie)</label>
+              <label for="short">{t("settings.time.short")}</label>
               <input id="short" type="number" min="0" max="3600" bind:value={draft.timer.ignoreShortEntriesSeconds} onchange={change} />
             </div>
             <div class="field">
-              <label for="long">Warnen, wenn ein Timer länger läuft als (Stunden, 0 = aus)</label>
+              <label for="long">{t("settings.time.long")}</label>
               <input id="long" type="number" min="0" max="48" bind:value={draft.timer.longRunningWarningHours} onchange={change} />
             </div>
           </div>
-          <label class="check"><input type="checkbox" bind:checked={draft.timer.allowConcurrent} onchange={change} /><span>Mehrere Timer gleichzeitig erlauben <span class="hint">Achtung: gleichzeitige Timer buchen dieselbe Zeit auf mehrere Tickets.</span></span></label>
-          <label class="check"><input type="checkbox" bind:checked={draft.timer.defaultBillable} onchange={change} /><span>Neue Einträge sind abrechenbar</span></label>
+          <label class="check"><input type="checkbox" bind:checked={draft.timer.allowConcurrent} onchange={change} /><span>{t("settings.time.concurrent")} <span class="hint">{t("settings.time.concurrentHint")}</span></span></label>
+          <label class="check"><input type="checkbox" bind:checked={draft.timer.defaultBillable} onchange={change} /><span>{t("settings.time.billable")}</span></label>
         </section>
         <section class="card block">
-          <h3>Erinnerungen</h3>
+          <h3>{t("settings.time.reminders")}</h3>
           <div class="two">
             <div class="field">
-              <label for="wstart">Arbeitsbeginn (Erinnerung, wenn kein Timer läuft)</label>
+              <label for="wstart">{t("settings.time.workdayStart")}</label>
               <input id="wstart" type="time" bind:value={draft.work.workdayStart} onchange={change} />
             </div>
             <div class="field">
-              <label for="brk">Pausenerinnerung nach (Minuten am Stück, 0 = aus)</label>
+              <label for="brk">{t("settings.time.break")}</label>
               <input id="brk" type="number" min="0" max="600" step="15" bind:value={draft.work.breakReminderAfterMinutes} onchange={change} />
             </div>
           </div>
-          <label class="check"><input type="checkbox" bind:checked={draft.work.dailyGoalNotification} onchange={change} /><span>Benachrichtigen, wenn die Tagesarbeitszeit erreicht ist</span></label>
-          <label class="check"><input type="checkbox" bind:checked={draft.work.unbookedReminder} onchange={change} /><span>An ungebuchte Zeiten der letzten zwei Wochen erinnern</span></label>
+          <label class="check"><input type="checkbox" bind:checked={draft.work.dailyGoalNotification} onchange={change} /><span>{t("settings.time.goal")}</span></label>
+          <label class="check"><input type="checkbox" bind:checked={draft.work.unbookedReminder} onchange={change} /><span>{t("settings.time.unbooked")}</span></label>
         </section>
       {:else if tab === "behavior"}
         <section class="card block">
-          <h3>App</h3>
-          <label class="check"><input type="checkbox" bind:checked={draft.behavior.closeToTray} onchange={change} /><span>Fenster schließen minimiert in die Menüleiste/den Tray <span class="hint">Beenden über das Tray-Menü oder „Beenden“ in der Seitenleiste.</span></span></label>
-          <label class="check"><input type="checkbox" bind:checked={draft.behavior.autostart} onchange={change} /><span>Beim Anmelden am Rechner starten</span></label>
-          <label class="check"><input type="checkbox" bind:checked={draft.behavior.notifications} onchange={change} /><span>Desktop-Benachrichtigungen</span></label>
-          <label class="check"><input type="checkbox" bind:checked={draft.behavior.showTimerInTray} onchange={change} /><span>Laufende Zeit in der Menüleiste anzeigen (macOS)</span></label>
-          <div class="field">
-            <label for="theme">Erscheinungsbild</label>
-            <select id="theme" bind:value={draft.behavior.theme} onchange={change}>
-              <option value="system">System</option>
-              <option value="light">Hell</option>
-              <option value="dark">Dunkel</option>
-            </select>
+          <h3>{t("settings.behavior.app")}</h3>
+          <label class="check"><input type="checkbox" bind:checked={draft.behavior.closeToTray} onchange={change} /><span>{t("settings.behavior.closeToTray")} <span class="hint">{t("settings.behavior.closeToTrayHint")}</span></span></label>
+          <label class="check"><input type="checkbox" bind:checked={draft.behavior.autostart} onchange={change} /><span>{t("settings.behavior.autostart")}</span></label>
+          <label class="check"><input type="checkbox" bind:checked={draft.behavior.notifications} onchange={change} /><span>{t("settings.behavior.notifications")}</span></label>
+          <label class="check"><input type="checkbox" bind:checked={draft.behavior.showTimerInTray} onchange={change} /><span>{t("settings.behavior.trayTimer")}</span></label>
+          <div class="two">
+            <div class="field">
+              <label for="theme">{t("settings.behavior.theme")}</label>
+              <select id="theme" bind:value={draft.behavior.theme} onchange={change}>
+                <option value="system">{t("settings.behavior.themeSystem")}</option>
+                <option value="light">{t("settings.behavior.themeLight")}</option>
+                <option value="dark">{t("settings.behavior.themeDark")}</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="language">{t("settings.behavior.language")}</label>
+              <select id="language" bind:value={draft.behavior.language} onchange={change}>
+                <option value="system">{t("settings.behavior.langSystem")}</option>
+                <option value="de">{t("settings.behavior.langDe")}</option>
+                <option value="en">{t("settings.behavior.langEn")}</option>
+              </select>
+              <span class="hint">{t("settings.behavior.languageHint")}</span>
+            </div>
           </div>
         </section>
         <section class="card block">
-          <h3>Tastenkürzel (global)</h3>
+          <h3>{t("settings.behavior.shortcuts")}</h3>
           <div class="two">
             <div class="field">
-              <label for="sc1">Letzten Timer starten/stoppen</label>
+              <label for="sc1">{t("settings.behavior.toggleTimer")}</label>
               <input id="sc1" type="text" bind:value={draft.behavior.shortcutToggleTimer} onchange={change} placeholder="CommandOrControl+Shift+T" />
             </div>
             <div class="field">
-              <label for="sc2">Fenster ein-/ausblenden</label>
+              <label for="sc2">{t("settings.behavior.showWindow")}</label>
               <input id="sc2" type="text" bind:value={draft.behavior.shortcutShowWindow} onchange={change} placeholder="CommandOrControl+Shift+Y" />
             </div>
           </div>
-          <span class="hint">Schreibweise: CommandOrControl, Shift, Alt, Super + Taste. Leer lassen zum Deaktivieren.</span>
+          <span class="hint">{t("settings.behavior.shortcutHint")}</span>
         </section>
         <section class="card block">
-          <h3>Aktualisierung</h3>
-          <label class="check"><input type="checkbox" bind:checked={draft.refresh.auto} onchange={change} /><span>Ticketliste automatisch aktualisieren</span></label>
+          <h3>{t("settings.behavior.refresh")}</h3>
+          <label class="check"><input type="checkbox" bind:checked={draft.refresh.auto} onchange={change} /><span>{t("settings.behavior.autoRefresh")}</span></label>
           <div class="field">
-            <label for="interval">Intervall (Minuten)</label>
+            <label for="interval">{t("settings.behavior.interval")}</label>
             <input id="interval" type="number" min="1" max="240" bind:value={draft.refresh.intervalMinutes} onchange={change} />
           </div>
         </section>
       {:else if tab === "tempo"}
         <section class="card block">
-          <h3>Buchung nach Jira / Tempo</h3>
-          {#each [["jiraWorklog", "Jira-Worklog", "Standard. Zeiten werden als Jira-Worklog gebucht. Tempo Data Center zeigt sie sofort, Tempo Cloud übernimmt sie erst über Nacht."], ["tempoDataCenter", "Tempo Timesheets (Data Center)", "Bucht über die Tempo-API der Jira-Instanz mit derselben Anmeldung. Setzt auch die abrechenbare Zeit."], ["tempoCloud", "Tempo Cloud API", "Für Jira Cloud empfohlen: sofort in Tempo sichtbar. Benötigt ein Tempo-API-Token (Tempo → Einstellungen → API-Integration)."]] as [id, label, help] (id)}
+          <h3>{t("settings.tempo.title")}</h3>
+          {#each tempoModes as [id, label, help] (id)}
             <label class="radio block-radio">
               <input type="radio" name="tempo" value={id} bind:group={draft.tempo.mode} onchange={change} />
-              <span><strong>{label}</strong><span class="hint">{help}</span></span>
+              <span><strong>{t(label)}</strong><span class="hint">{t(help)}</span></span>
             </label>
           {/each}
           {#if draft.tempo.mode === "tempoCloud"}
             <div class="field">
-              <label for="tbase">Tempo-API-Basis</label>
+              <label for="tbase">{t("settings.tempo.apiBase")}</label>
               <input id="tbase" type="url" bind:value={draft.tempo.cloudApiBase} oninput={change} />
             </div>
             <div class="field">
-              <label for="ttoken">Tempo-API-Token {draft.tempo.cloudTokenSet ? "(gespeichert)" : ""}</label>
+              <label for="ttoken">{t("settings.tempo.token")} {draft.tempo.cloudTokenSet ? t("settings.tempo.tokenSet") : ""}</label>
               <div class="row">
-                <input id="ttoken" type="password" bind:value={tempoToken} placeholder={draft.tempo.cloudTokenSet ? "••••••••" : "Token einfügen"} />
-                <button class="btn" type="button" onclick={() => saveTempoToken(false)} disabled={tempoBusy || !tempoToken}>Prüfen & speichern</button>
-                {#if draft.tempo.cloudTokenSet}<button class="btn danger" type="button" onclick={() => saveTempoToken(true)} disabled={tempoBusy}>Entfernen</button>{/if}
+                <input id="ttoken" type="password" bind:value={tempoToken} placeholder={draft.tempo.cloudTokenSet ? "••••••••" : t("settings.tempo.tokenPlaceholder")} />
+                <button class="btn" type="button" onclick={() => saveTempoToken(false)} disabled={tempoBusy || !tempoToken}>{t("settings.tempo.checkSave")}</button>
+                {#if draft.tempo.cloudTokenSet}<button class="btn danger" type="button" onclick={() => saveTempoToken(true)} disabled={tempoBusy}>{t("common.remove")}</button>{/if}
               </div>
             </div>
           {/if}
         </section>
         <section class="card block">
-          <h3>Rundung bei der Buchung</h3>
-          <p class="hint">Lokal bleiben alle Zeiten sekundengenau. Die Rundung wirkt pro Eintrag beim Buchen.</p>
+          <h3>{t("settings.tempo.rounding")}</h3>
+          <p class="hint">{t("settings.tempo.roundingHint")}</p>
           <div class="two">
             <div class="field">
-              <label for="rmin">Runden auf</label>
+              <label for="rmin">{t("settings.tempo.roundTo")}</label>
               <select id="rmin" bind:value={draft.timer.rounding.minutes} onchange={change}>
-                <option value={0}>nicht runden</option>
-                <option value={5}>5 Minuten</option>
-                <option value={6}>6 Minuten</option>
-                <option value={10}>10 Minuten</option>
-                <option value={15}>15 Minuten</option>
-                <option value={30}>30 Minuten</option>
+                <option value={0}>{t("settings.tempo.noRounding")}</option>
+                {#each [5, 6, 10, 15, 30] as m (m)}
+                  <option value={m}>{t("settings.tempo.minutes", { n: m })}</option>
+                {/each}
               </select>
             </div>
             <div class="field">
-              <label for="rmode">Richtung</label>
+              <label for="rmode">{t("settings.tempo.direction")}</label>
               <select id="rmode" bind:value={draft.timer.rounding.mode} onchange={change} disabled={!draft.timer.rounding.minutes}>
-                <option value="nearest">kaufmännisch</option>
-                <option value="up">aufrunden</option>
-                <option value="down">abrunden</option>
+                <option value="nearest">{t("settings.tempo.nearest")}</option>
+                <option value="up">{t("settings.tempo.up")}</option>
+                <option value="down">{t("settings.tempo.down")}</option>
               </select>
             </div>
           </div>
-          <label class="check"><input type="checkbox" bind:checked={draft.timer.bookOnStop} onchange={change} /><span>Beim Stoppen eines Timers sofort buchen</span></label>
-          <label class="check"><input type="checkbox" bind:checked={draft.timer.askNoteOnStop} onchange={change} /><span>Beim Stoppen nach einer Notiz fragen, wenn keine vorhanden ist</span></label>
+          <label class="check"><input type="checkbox" bind:checked={draft.timer.bookOnStop} onchange={change} /><span>{t("settings.tempo.bookOnStop")}</span></label>
+          <label class="check"><input type="checkbox" bind:checked={draft.timer.askNoteOnStop} onchange={change} /><span>{t("settings.tempo.askNote")}</span></label>
         </section>
       {:else if tab === "info"}
         <section class="card block">
           <h3>YaTTT</h3>
           {#if info}
             <dl>
-              <dt>Version</dt><dd>{info.version} ({info.platform})</dd>
-              <dt>Einstellungen</dt><dd class="mono small">{info.configDir}</dd>
-              <dt>Datenbank & Backups</dt><dd class="mono small">{info.dataDir}</dd>
-              <dt>Logdateien</dt><dd class="mono small">{info.logDir}</dd>
-              <dt>Zugangsdaten</dt>
+              <dt>{t("settings.info.version")}</dt><dd>{info.version} ({info.platform})</dd>
+              <dt>{t("settings.info.settings")}</dt><dd class="mono small">{info.configDir}</dd>
+              <dt>{t("settings.info.database")}</dt><dd class="mono small">{info.dataDir}</dd>
+              <dt>{t("settings.info.logs")}</dt><dd class="mono small">{info.logDir}</dd>
+              <dt>{t("settings.info.credentials")}</dt>
               <dd>
                 {#if info.secretBackend === "keyring"}
-                  Verschlüsselt; Schlüssel im Schlüsselbund des Betriebssystems.
+                  {t("settings.info.keyring")}
                 {:else}
-                  <span class="badge warning">Kein Schlüsselbund verfügbar</span> Schlüssel liegt als Datei mit eingeschränkten Rechten im Konfigurationsordner.
+                  <span class="badge warning">{t("settings.info.noKeyring")}</span> {t("settings.info.fileKey")}
                 {/if}
               </dd>
             </dl>
           {/if}
         </section>
         <section class="card block">
-          <h3>Vorhandene Worklogs aus Jira importieren</h3>
-          <p class="hint">Holt deine bereits in Jira gebuchten Zeiten als gebuchte Einträge, damit Soll/Ist und Statistik vollständig sind.</p>
+          <h3>{t("settings.info.importTitle")}</h3>
+          <p class="hint">{t("settings.info.importHint")}</p>
           <div class="row wrap">
             <input type="date" bind:value={importFrom} />
-            <span class="faint">bis</span>
+            <span class="faint">{t("common.to")}</span>
             <input type="date" bind:value={importTo} />
-            <button class="btn" type="button" onclick={runImport} disabled={importing || !store.connected}><Icon name="download" size={14} /> Importieren</button>
+            <button class="btn" type="button" onclick={runImport} disabled={importing || !store.connected}><Icon name="download" size={14} /> {t("settings.info.import")}</button>
           </div>
         </section>
       {/if}

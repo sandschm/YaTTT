@@ -290,7 +290,11 @@ impl JiraClient {
 
     pub async fn myself(&self) -> Result<JiraUser> {
         let v = self.get_json("rest/api/2/myself", &[]).await?;
-        parse::parse_user(&v).ok_or_else(|| Error::Parse("Benutzerantwort unvollständig".into()))
+        parse::parse_user(&v).ok_or_else(|| {
+            Error::Parse(
+                crate::tr!("Benutzerantwort unvollständig", "Incomplete user response").into(),
+            )
+        })
     }
 
     /// Checks the credentials and detects the deployment type.
@@ -609,8 +613,13 @@ impl JiraClient {
                 &[("fields", ids.search_fields())],
             )
             .await?;
-        parse::parse_issue(&v, &ids)
-            .ok_or_else(|| Error::Parse(format!("Ticket {key} konnte nicht gelesen werden")))
+        parse::parse_issue(&v, &ids).ok_or_else(|| {
+            Error::Parse(crate::tr!(
+                "Ticket {key} konnte nicht gelesen werden",
+                "Ticket {key} could not be read",
+                key = key
+            ))
+        })
     }
 
     // ------------------------------------------------------------ worklogs
@@ -640,7 +649,11 @@ impl JiraClient {
                     .map(str::to_string)
                     .unwrap_or_else(|| i.to_string())
             })
-            .ok_or_else(|| Error::Parse("Worklog-Antwort ohne id".into()))
+            .ok_or_else(|| {
+                Error::Parse(
+                    crate::tr!("Worklog-Antwort ohne id", "Worklog response without id").into(),
+                )
+            })
     }
 
     pub async fn update_worklog(
@@ -754,7 +767,13 @@ impl JiraClient {
             .await?;
         let status = resp.status();
         if status == StatusCode::UNAUTHORIZED {
-            return Err(Error::Invalid("Benutzername oder Passwort falsch".into()));
+            return Err(Error::Invalid(
+                crate::tr!(
+                    "Benutzername oder Passwort falsch",
+                    "Wrong username or password"
+                )
+                .into(),
+            ));
         }
         if status == StatusCode::FORBIDDEN {
             let reason = resp
@@ -764,7 +783,11 @@ impl JiraClient {
                 .unwrap_or("");
             if reason.contains("AUTHENTICATION_DENIED") {
                 return Err(Error::Invalid(
-                    "Jira verlangt ein CAPTCHA. Bitte einmal im Browser anmelden oder die Browser-Anmeldung verwenden.".into(),
+                    crate::tr!(
+                        "Jira verlangt ein CAPTCHA. Bitte einmal im Browser anmelden oder die Browser-Anmeldung verwenden.",
+                        "Jira requires a CAPTCHA. Sign in once in the browser or use the browser login."
+                    )
+                    .into(),
                 ));
             }
             return Err(Error::AuthExpired(403));
@@ -772,7 +795,7 @@ impl JiraClient {
         if !status.is_success() {
             return Err(Error::Http {
                 status: status.as_u16(),
-                message: "Anmeldung fehlgeschlagen".into(),
+                message: crate::tr!("Anmeldung fehlgeschlagen", "Sign-in failed").into(),
             });
         }
         let mut cookies = Vec::new();
@@ -811,7 +834,13 @@ impl JiraClient {
             }
         }
         if cookies.is_empty() {
-            return Err(Error::Parse("Keine Session-Cookies in der Antwort".into()));
+            return Err(Error::Parse(
+                crate::tr!(
+                    "Keine Session-Cookies in der Antwort",
+                    "No session cookies in the response"
+                )
+                .into(),
+            ));
         }
         Ok(cookies)
     }

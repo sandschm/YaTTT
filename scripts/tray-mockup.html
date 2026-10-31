@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>YaTTT – Menüleisten-Menü (Darstellung)</title>
+<title>YaTTT – menu bar menu (recreation)</title>
 <style>
   /* Recreation of the macOS menu bar item and its menu, built from the entries in
      src-tauri/src/tray.rs. Rendered by scripts/screenshots.sh; __ICON__ is replaced with the
@@ -80,30 +80,30 @@
     <span class="status"><img src="__ICON__" alt=""><span>0:37 WEB-105</span></span>
     <span class="glyph">📶</span>
     <span class="glyph">🔋</span>
-    <span>Fr. 31. Okt.&nbsp; 10:52</span>
+    <span>Fri 31 Oct&nbsp; 10:52</span>
   </div>
 
   <div class="menu" role="menu" aria-label="YaTTT">
-    <div class="item disabled">0:37&nbsp;&nbsp;<span class="key">WEB-105</span> · Widget-Layout speichern</div>
-    <div class="item">Timer stoppen</div>
+    <div class="item disabled">0:37&nbsp;&nbsp;<span class="key">WEB-105</span> · Save widget layout</div>
+    <div class="item">Stop timer</div>
     <div class="sep"></div>
-    <div class="item header">Favoriten</div>
-    <div class="item"><span class="check">✓</span><span class="key">WEB-105</span>&nbsp;&nbsp;Widget-Layout speichern</div>
-    <div class="item selected"><span class="key">WEB-101</span>&nbsp;&nbsp;Login-Seite: Fehlermeldung bei abgelaufen…</div>
-    <div class="item"><span class="key">API-80</span>&nbsp;&nbsp;Worklog-Webhook an Tempo weiterleiten</div>
+    <div class="item header">Favorites</div>
+    <div class="item"><span class="check">✓</span><span class="key">WEB-105</span>&nbsp;&nbsp;Save widget layout</div>
+    <div class="item selected"><span class="key">WEB-101</span>&nbsp;&nbsp;Login page: error message for expired…</div>
+    <div class="item"><span class="key">API-80</span>&nbsp;&nbsp;Forward worklog webhook to Tempo</div>
     <div class="sep"></div>
-    <div class="item">▶ <span class="key">API-77</span>&nbsp;&nbsp;Rate-Limiting für /search Endpunkt</div>
-    <div class="item">▶ <span class="key">OPS-12</span>&nbsp;&nbsp;Zertifikat jira.example.com erneuern</div>
+    <div class="item">▶ <span class="key">API-77</span>&nbsp;&nbsp;Rate limiting for the /search endpoint</div>
+    <div class="item">▶ <span class="key">OPS-12</span>&nbsp;&nbsp;Renew certificate for jira.example.com</div>
     <div class="sep"></div>
-    <div class="item">YaTTT anzeigen</div>
-    <div class="item">Tickets aktualisieren</div>
+    <div class="item">Show YaTTT</div>
+    <div class="item">Refresh tickets</div>
     <div class="sep"></div>
-    <div class="item">YaTTT beenden</div>
+    <div class="item">Quit YaTTT</div>
   </div>
 
   <div class="caption">
-    <b>Ein Klick auf einen Favoriten startet den Timer</b>, ein Klick auf den laufenden (✓) stoppt ihn.
-    Die Menüleiste zeigt die laufende Zeit, auch bei geschlossenem Fenster.
+    <b>Clicking a favorite starts its timer</b>; clicking the running one (✓) stops it.
+    The menu bar shows the running time even while the window is closed.
   </div>
 </body>
 </html>

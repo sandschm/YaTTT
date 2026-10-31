@@ -53,7 +53,13 @@ pub async fn save_settings(
     }
     let url_changed = old.jira_base() != settings.jira_base();
     if url_changed && state.is_authenticated() {
-        state.clear_session(Some("Jira-URL geändert. Bitte erneut anmelden.".into()));
+        state.clear_session(Some(
+            yattt_core::tr!(
+                "Jira-URL geändert. Bitte erneut anmelden.",
+                "Jira URL changed. Please sign in again."
+            )
+            .into(),
+        ));
         emit(&app, "auth-changed", state.auth_status());
     }
     crate::apply_settings(&app, &state, &old, &settings);
@@ -107,7 +113,11 @@ pub async fn login_with_password(
     let settings = state.settings();
     let base = settings.jira_base();
     if base.is_empty() {
-        return Err("Bitte zuerst die Jira-URL eintragen".into());
+        return Err(yattt_core::tr!(
+            "Bitte zuerst die Jira-URL eintragen",
+            "Please enter the Jira URL first"
+        )
+        .into());
     }
     // Validate against the session resource first: gives clear errors (wrong password, CAPTCHA).
     yattt_core::jira::JiraClient::login_with_password(&base, &username, &password)
@@ -140,7 +150,11 @@ pub async fn login_with_token(
     let settings = state.settings();
     let base = settings.jira_base();
     if base.is_empty() {
-        return Err("Bitte zuerst die Jira-URL eintragen".into());
+        return Err(yattt_core::tr!(
+            "Bitte zuerst die Jira-URL eintragen",
+            "Please enter the Jira URL first"
+        )
+        .into());
     }
     let (credential, method) = match kind.as_str() {
         "pat" => (
@@ -156,7 +170,13 @@ pub async fn login_with_token(
             },
             AuthMethod::ApiToken,
         ),
-        other => return Err(format!("Unbekannte Anmeldeart {other}")),
+        other => {
+            return Err(yattt_core::tr!(
+                "Unbekannte Anmeldeart {other}",
+                "Unknown sign-in method {other}",
+                other = other
+            ))
+        }
     };
     let status = jobs::install_client(&app, &state, credential.clone()).await?;
     secrets::save_credential(state.secrets.as_ref(), &base, &credential).map_err(err)?;
@@ -397,7 +417,11 @@ pub async fn add_issue_by_key(app: AppHandle, state: S<'_>, key: String) -> Resu
     }
     let jira = state.jira()?;
     let mut issue = jira.get_issue(&key).await.map_err(|e| match e {
-        yattt_core::Error::Http { status: 404, .. } => format!("Ticket {key} wurde nicht gefunden"),
+        yattt_core::Error::Http { status: 404, .. } => yattt_core::tr!(
+            "Ticket {key} wurde nicht gefunden",
+            "Ticket {key} was not found",
+            key = key
+        ),
         other => other.to_string(),
     })?;
     issue.source = "manual".into();
@@ -536,7 +560,11 @@ pub fn update_running(
     }
     if let Some(s) = started_at {
         if s > now {
-            return Err("Startzeit liegt in der Zukunft".into());
+            return Err(yattt_core::tr!(
+                "Startzeit liegt in der Zukunft",
+                "The start time is in the future"
+            )
+            .into());
         }
         state.store.set_entry_start(entry_id, s, now).map_err(err)?;
     }
@@ -544,7 +572,7 @@ pub fn update_running(
         .store
         .get_entry(entry_id)
         .map_err(err)?
-        .ok_or("Eintrag nicht gefunden")?;
+        .ok_or_else(|| yattt_core::tr!("Eintrag nicht gefunden", "Entry not found").to_string())?;
     crate::after_timer_change(&app, &state);
     Ok(entry)
 }
@@ -563,7 +591,11 @@ pub fn list_entries(
 #[tauri::command]
 pub fn add_entry(app: AppHandle, state: S<'_>, input: TimeEntryInput) -> Result<TimeEntry, String> {
     if input.ended_at.is_none() {
-        return Err("Manuelle Einträge brauchen ein Ende".into());
+        return Err(yattt_core::tr!(
+            "Manuelle Einträge brauchen ein Ende",
+            "Manual entries need an end time"
+        )
+        .into());
     }
     let entry = state.store.insert_entry(&input, Utc::now()).map_err(err)?;
     emit(&app, "entries-changed", ());
@@ -629,7 +661,9 @@ pub async fn import_worklogs(
     to: NaiveDate,
 ) -> Result<usize, String> {
     let jira = state.jira()?;
-    let user = state.user().ok_or("Nicht angemeldet")?;
+    let user = state
+        .user()
+        .ok_or_else(|| yattt_core::tr!("Nicht angemeldet", "Not signed in").to_string())?;
     let tempo_cloud = state.tempo_cloud.read().unwrap().clone();
     let ctx = jobs::booking_context(&state, &jira, &user, tempo_cloud.as_deref());
     let n = yattt_core::sync::import_worklogs(&ctx, &state.store, from, to, Utc::now())
@@ -719,7 +753,13 @@ pub fn export_entries(
     let content = match format.as_str() {
         "csv" => yattt_core::export::to_csv(&rows, settings.work.time_format).map_err(err)?,
         "json" => yattt_core::export::to_json(&rows).map_err(err)?,
-        other => return Err(format!("Unbekanntes Format {other}")),
+        other => {
+            return Err(yattt_core::tr!(
+                "Unbekanntes Format {other}",
+                "Unknown format {other}",
+                other = other
+            ))
+        }
     };
     std::fs::write(&path, content).map_err(err)?;
     Ok(rows.len())
@@ -854,10 +894,13 @@ pub async fn set_tempo_cloud_token(
         Some(t) => {
             let client = yattt_core::tempo::TempoCloud::new(&settings.tempo.cloud_api_base, &t)
                 .map_err(err)?;
-            client
-                .verify()
-                .await
-                .map_err(|e| format!("Tempo-Token wurde nicht akzeptiert: {e}"))?;
+            client.verify().await.map_err(|e| {
+                yattt_core::tr!(
+                    "Tempo-Token wurde nicht akzeptiert: {e}",
+                    "The Tempo token was not accepted: {e}",
+                    e = e
+                )
+            })?;
             state.secrets.set(&key, &t).map_err(err)?;
         }
         None => state.secrets.delete(&key).map_err(err)?,
@@ -883,6 +926,12 @@ pub struct AppInfo {
     pub data_dir: String,
     pub log_dir: String,
     pub secret_backend: yattt_core::secrets::SecretBackend,
+}
+
+/// Language the operating system prefers ("de" or "en"); the frontend resolves "system" with it.
+#[tauri::command]
+pub fn get_system_language() -> String {
+    crate::system_language().tag().to_string()
 }
 
 #[tauri::command]

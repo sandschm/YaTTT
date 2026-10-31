@@ -1,9 +1,10 @@
 //! CSV / JSON export of time entries.
 
 use crate::error::Result;
+use crate::i18n::Lang;
 use crate::models::{Issue, TimeEntry};
 use crate::settings::TimeFormat;
-use crate::{format_duration, stats::split_by_local_day};
+use crate::{format_duration_in, stats::split_by_local_day};
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -93,39 +94,70 @@ pub fn summarize_rows(rows: &[ExportRow]) -> Vec<ExportRow> {
 }
 
 pub fn to_csv(rows: &[ExportRow], time_format: TimeFormat) -> Result<String> {
+    to_csv_in(rows, time_format, crate::i18n::lang())
+}
+
+/// CSV in the conventions of `lang`: German uses `;`, `dd.mm.yyyy` and a decimal comma (what
+/// Excel expects in a German locale), English uses `,`, ISO dates and a decimal point.
+pub fn to_csv_in(rows: &[ExportRow], time_format: TimeFormat, lang: Lang) -> Result<String> {
+    let (delimiter, date_format, yes, no, header) = match lang {
+        Lang::De => (
+            b';',
+            "%d.%m.%Y",
+            "ja",
+            "nein",
+            [
+                "Datum",
+                "Start",
+                "Ende",
+                "Dauer",
+                "Dauer (Sekunden)",
+                "Projekt",
+                "Ticket",
+                "Titel",
+                "Notiz",
+                "Abrechenbar",
+                "Buchungsstatus",
+                "Jira-Worklog-ID",
+            ],
+        ),
+        Lang::En => (
+            b',',
+            "%Y-%m-%d",
+            "yes",
+            "no",
+            [
+                "Date",
+                "Start",
+                "End",
+                "Duration",
+                "Duration (seconds)",
+                "Project",
+                "Ticket",
+                "Title",
+                "Note",
+                "Billable",
+                "Booking status",
+                "Jira worklog ID",
+            ],
+        ),
+    };
     let mut wtr = csv::WriterBuilder::new()
-        .delimiter(b';')
+        .delimiter(delimiter)
         .from_writer(vec![]);
-    wtr.write_record([
-        "Datum",
-        "Start",
-        "Ende",
-        "Dauer",
-        "Dauer (Sekunden)",
-        "Projekt",
-        "Ticket",
-        "Titel",
-        "Notiz",
-        "Abrechenbar",
-        "Buchungsstatus",
-        "Jira-Worklog-ID",
-    ])?;
+    wtr.write_record(header)?;
     for r in rows {
         wtr.write_record([
-            r.date.format("%d.%m.%Y").to_string(),
+            r.date.format(date_format).to_string(),
             r.start.with_timezone(&Local).format("%H:%M").to_string(),
             r.end.with_timezone(&Local).format("%H:%M").to_string(),
-            format_duration(r.duration_seconds, time_format),
+            format_duration_in(r.duration_seconds, time_format, lang),
             r.duration_seconds.to_string(),
             r.project_key.clone(),
             r.issue_key.clone(),
             r.summary.clone(),
             r.note.clone(),
-            if r.billable {
-                "ja".into()
-            } else {
-                "nein".into()
-            },
+            if r.billable { yes.into() } else { no.into() },
             r.sync_state.clone(),
             r.jira_worklog_id.clone().unwrap_or_default(),
         ])?;
@@ -187,9 +219,15 @@ mod tests {
         ];
         let rows = build_rows(&entries, &HashMap::new(), at(18, 0));
         assert_eq!(rows.len(), 3);
-        let csv = to_csv(&rows, TimeFormat::HoursMinutes).unwrap();
+        let csv = to_csv_in(&rows, TimeFormat::HoursMinutes, Lang::De).unwrap();
         assert!(csv.starts_with('\u{feff}'));
-        assert!(csv.contains("28.10.2026;09:00;10:00;1:00;3600;A;A-1"));
+        assert!(csv.starts_with("\u{feff}Datum;Start;Ende;"));
+        assert!(csv.contains("28.10.2026;09:00;10:00;1:00;3600;A;A-1;"));
+        assert!(csv.contains(";ja;"));
+        let csv = to_csv_in(&rows, TimeFormat::Decimal, Lang::En).unwrap();
+        assert!(csv.starts_with("\u{feff}Date,Start,End,"));
+        assert!(csv.contains("2026-10-28,09:00,10:00,1.00,3600,A,A-1,"));
+        assert!(csv.contains(",yes,"));
         let summary = summarize_rows(&rows);
         assert_eq!(summary.len(), 2);
         let a = summary.iter().find(|r| r.issue_key == "A-1").unwrap();

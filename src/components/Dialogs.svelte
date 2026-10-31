@@ -2,6 +2,7 @@
   // Idle / sleep prompt, restore prompt after restart, exit confirmation and toasts.
   import { store } from "../lib/store.svelte";
   import { api } from "../lib/api";
+  import { t } from "../lib/i18n.svelte";
   import { formatDuration, formatTime } from "../lib/format";
   import Icon from "./Icon.svelte";
 
@@ -44,24 +45,24 @@
 {#if idle}
   <div class="overlay">
     <div class="dialog" role="alertdialog" aria-modal="true">
-      <h2>{idle.reason === "sleep" ? "Der Rechner war im Ruhezustand" : "Du warst eine Weile inaktiv"}</h2>
+      <h2>{idle.reason === "sleep" ? t("dialog.idle.sleepTitle") : t("dialog.idle.idleTitle")}</h2>
       <p>
-        Seit {formatTime(idle.idleSince)} ({formatDuration(idleMinutes * 60)} h) gab es keine Eingaben. Der Timer
+        {t("dialog.idle.text", { time: formatTime(idle.idleSince), duration: formatDuration(idleMinutes * 60) })}
         {#each idle.entryIds as id, i}{i > 0 ? ", " : " "}<strong>{store.running.find((e) => e.id === id)?.issueKey ?? id}</strong>{/each}
-        lief währenddessen weiter. Was soll mit dieser Zeit passieren?
+        {t("dialog.idle.textEnd")}
       </p>
       <div class="options">
         <button class="btn" type="button" onclick={() => respondIdle("keep")}>
-          <Icon name="check" size={15} /> Zeit behalten
-          <span class="hint">Ich habe weitergearbeitet.</span>
+          <Icon name="check" size={15} /> {t("dialog.idle.keep")}
+          <span class="hint">{t("dialog.idle.keepHint")}</span>
         </button>
         <button class="btn" type="button" onclick={() => respondIdle("discardIdle")}>
-          <Icon name="bolt" size={15} /> Inaktive Zeit abziehen
-          <span class="hint">Eintrag endet {formatTime(idle.idleSince)}, Timer läuft ab jetzt weiter.</span>
+          <Icon name="bolt" size={15} /> {t("dialog.idle.discard")}
+          <span class="hint">{t("dialog.idle.discardHint", { time: formatTime(idle.idleSince) })}</span>
         </button>
         <button class="btn" type="button" onclick={() => respondIdle("stopAtIdleStart")}>
-          <Icon name="stop" size={15} /> Timer um {formatTime(idle.idleSince)} stoppen
-          <span class="hint">Nichts läuft weiter.</span>
+          <Icon name="stop" size={15} /> {t("dialog.idle.stopAt", { time: formatTime(idle.idleSince) })}
+          <span class="hint">{t("dialog.idle.stopHint")}</span>
         </button>
       </div>
     </div>
@@ -72,31 +73,31 @@
   {@const entry = restore.entries[0]}
   <div class="overlay">
     <div class="dialog" role="alertdialog" aria-modal="true">
-      <h2>Timer lief beim letzten Beenden noch</h2>
+      <h2>{t("dialog.restore.title")}</h2>
       <p>
         {#if restore.keptRunningOnExit}
-          Beim Beenden wurde „Weiterlaufen lassen“ gewählt.
+          {t("dialog.restore.kept")}
         {:else}
-          YaTTT wurde beendet (oder der Rechner heruntergefahren), während der Timer für <strong>{entry.issueKey}</strong> lief.
+          {t("dialog.restore.crashedBefore")} <strong>{entry.issueKey}</strong> {t("dialog.restore.crashedAfter")}
         {/if}
-        Gestartet {formatTime(entry.startedAt)}{restore.lastSeen ? `, zuletzt aktiv ${formatTime(restore.lastSeen)}` : ""}.
-        Bis jetzt wären das {formatDuration(store.elapsed(entry))} h.
+        {t("dialog.restore.started", { time: formatTime(entry.startedAt) })}{restore.lastSeen ? t("dialog.restore.lastActive", { time: formatTime(restore.lastSeen) }) : ""}.
+        {t("dialog.restore.soFar", { duration: formatDuration(store.elapsed(entry)) })}
       </p>
       <div class="options">
         <button class="btn" type="button" onclick={() => respondRestore(entry.id, "keepRunning")}>
-          <Icon name="play" size={15} /> Weiterlaufen lassen
-          <span class="hint">Die Zeit zählt durchgehend bis jetzt.</span>
+          <Icon name="play" size={15} /> {t("dialog.restore.keepRunning")}
+          <span class="hint">{t("dialog.restore.keepRunningHint")}</span>
         </button>
         {#if restore.lastSeen}
           <button class="btn" type="button" onclick={() => respondRestore(entry.id, "stopAtLastSeen")}>
-            <Icon name="stop" size={15} /> Bei letzter Aktivität stoppen ({formatTime(restore.lastSeen)})
+            <Icon name="stop" size={15} /> {t("dialog.restore.stopAtLastSeen", { time: formatTime(restore.lastSeen) })}
           </button>
         {/if}
         <button class="btn" type="button" onclick={() => respondRestore(entry.id, "stopNow")}>
-          <Icon name="stop" size={15} /> Jetzt stoppen
+          <Icon name="stop" size={15} /> {t("dialog.restore.stopNow")}
         </button>
         <button class="btn danger" type="button" onclick={() => respondRestore(entry.id, "discard")}>
-          <Icon name="trash" size={15} /> Eintrag verwerfen
+          <Icon name="trash" size={15} /> {t("dialog.restore.discard")}
         </button>
       </div>
     </div>
@@ -106,13 +107,10 @@
 {#if favoriteLimit}
   <div class="overlay">
     <div class="dialog" role="alertdialog" aria-modal="true">
-      <h2>Maximal {favoriteLimit.limit} Favoriten</h2>
-      <p>
-        Du hast bereits {favoriteLimit.count} Favoriten markiert. Mehr als {favoriteLimit.limit} sind nicht möglich, damit die Liste im
-        Menüleisten-Symbol übersichtlich bleibt. Entferne zuerst einen Favoriten (Stern am Ticket), um ein weiteres Ticket zu markieren.
-      </p>
+      <h2>{t("dialog.fav.title", { limit: favoriteLimit.limit })}</h2>
+      <p>{t("dialog.fav.text", { count: favoriteLimit.count, limit: favoriteLimit.limit })}</p>
       <div class="actions">
-        <button class="btn primary" type="button" onclick={() => (store.favoriteLimit = null)}>Verstanden</button>
+        <button class="btn primary" type="button" onclick={() => (store.favoriteLimit = null)}>{t("dialog.fav.ok")}</button>
       </div>
     </div>
   </div>
@@ -121,19 +119,12 @@
 {#if exit}
   <div class="overlay">
     <div class="dialog" role="alertdialog" aria-modal="true">
-      <h2>Ein Timer läuft noch</h2>
-      <p>
-        {#if exit === "shutdown"}
-          Das System möchte herunterfahren oder dich abmelden. YaTTT hat den Vorgang kurz angehalten, damit du entscheiden kannst.
-          Nach deiner Wahl musst du das Herunterfahren erneut auslösen.
-        {:else}
-          Soll der Timer gestoppt werden oder weiterlaufen? Bei „Weiterlaufen lassen“ zählt die Zeit weiter und wird beim nächsten Start angezeigt.
-        {/if}
-      </p>
+      <h2>{t("dialog.exit.title")}</h2>
+      <p>{exit === "shutdown" ? t("dialog.exit.shutdown") : t("dialog.exit.quit")}</p>
       <div class="actions">
-        <button class="btn" type="button" onclick={cancelExit}>Abbrechen</button>
-        <button class="btn" type="button" onclick={() => confirmExit(false)}>Weiterlaufen lassen und beenden</button>
-        <button class="btn primary" type="button" onclick={() => confirmExit(true)}>Timer stoppen und beenden</button>
+        <button class="btn" type="button" onclick={cancelExit}>{t("common.cancel")}</button>
+        <button class="btn" type="button" onclick={() => confirmExit(false)}>{t("dialog.exit.keepAndQuit")}</button>
+        <button class="btn primary" type="button" onclick={() => confirmExit(true)}>{t("dialog.exit.stopAndQuit")}</button>
       </div>
     </div>
   </div>
@@ -146,7 +137,7 @@
       {#if toast.action}
         <button class="btn sm" type="button" onclick={() => { toast.action?.run(); store.dismissToast(toast.id); }}>{toast.action.label}</button>
       {/if}
-      <button class="btn ghost sm icon" type="button" onclick={() => store.dismissToast(toast.id)} aria-label="Schließen"><Icon name="x" size={14} /></button>
+      <button class="btn ghost sm icon" type="button" onclick={() => store.dismissToast(toast.id)} aria-label={t("common.close")}><Icon name="x" size={14} /></button>
     </div>
   {/each}
 </div>

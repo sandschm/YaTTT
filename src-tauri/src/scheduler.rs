@@ -162,8 +162,11 @@ fn reminders(app: &AppHandle, state: &Arc<AppState>, now: chrono::DateTime<Utc>)
                     notify(
                         app,
                         state,
-                        "Noch kein Timer gestartet",
-                        "Der Arbeitstag hat begonnen, aber es läuft keine Zeiterfassung.",
+                        yattt_core::tr!("Noch kein Timer gestartet", "No timer started yet"),
+                        yattt_core::tr!(
+                            "Der Arbeitstag hat begonnen, aber es läuft keine Zeiterfassung.",
+                            "The workday has begun, but no time is being tracked."
+                        ),
                     );
                 }
             }
@@ -197,10 +200,11 @@ fn reminders(app: &AppHandle, state: &Arc<AppState>, now: chrono::DateTime<Utc>)
                 notify(
                     app,
                     state,
-                    "Tagesziel erreicht",
-                    &format!(
-                        "Heute wurden {} Stunden erfasst.",
-                        format_duration(tracked_today, settings.work.time_format)
+                    yattt_core::tr!("Tagesziel erreicht", "Daily goal reached"),
+                    &yattt_core::tr!(
+                        "Heute wurden {hours} Stunden erfasst.",
+                        "{hours} hours tracked today.",
+                        hours = format_duration(tracked_today, settings.work.time_format)
                     ),
                 );
             }
@@ -220,10 +224,11 @@ fn reminders(app: &AppHandle, state: &Arc<AppState>, now: chrono::DateTime<Utc>)
             notify(
                 app,
                 state,
-                "Zeit für eine Pause",
-                &format!(
-                    "Der Timer läuft seit {}.",
-                    format_duration(continuous * 60, settings.work.time_format)
+                yattt_core::tr!("Zeit für eine Pause", "Time for a break"),
+                &yattt_core::tr!(
+                    "Der Timer läuft seit {duration}.",
+                    "The timer has been running for {duration}.",
+                    duration = format_duration(continuous * 60, settings.work.time_format)
                 ),
             );
         }
@@ -242,11 +247,13 @@ fn reminders(app: &AppHandle, state: &Arc<AppState>, now: chrono::DateTime<Utc>)
                 notify(
                     app,
                     state,
-                    "Timer läuft sehr lange",
-                    &format!(
-                        "{} läuft seit {}. Vergessen zu stoppen?",
-                        e.issue_key,
-                        format_duration(e.duration_seconds(now), settings.work.time_format)
+                    yattt_core::tr!("Timer läuft sehr lange", "Timer running for a long time"),
+                    &yattt_core::tr!(
+                        "{key} läuft seit {duration}. Vergessen zu stoppen?",
+                        "{key} has been running for {duration}. Forgot to stop it?",
+                        key = e.issue_key,
+                        duration =
+                            format_duration(e.duration_seconds(now), settings.work.time_format)
                     ),
                 );
             }
@@ -279,9 +286,11 @@ fn reminders(app: &AppHandle, state: &Arc<AppState>, now: chrono::DateTime<Utc>)
                 notify(
                     app,
                     state,
-                    "Ungebuchte Zeiten",
-                    &format!(
-                        "{old} Einträge der letzten zwei Wochen sind noch nicht nach Jira gebucht."
+                    yattt_core::tr!("Ungebuchte Zeiten", "Unbooked times"),
+                    &yattt_core::tr!(
+                        "{old} Einträge der letzten zwei Wochen sind noch nicht nach Jira gebucht.",
+                        "{old} entries from the last two weeks are not yet booked to Jira.",
+                        old = old
                     ),
                 );
             }

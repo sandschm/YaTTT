@@ -22,7 +22,14 @@ fn ts(dt: &DateTime<Utc>) -> String {
 fn parse_ts(s: &str) -> Result<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(s)
         .map(|d| d.with_timezone(&Utc))
-        .map_err(|e| Error::Parse(format!("Zeitstempel '{s}': {e}")))
+        .map_err(|e| {
+            Error::Parse(crate::tr!(
+                "Zeitstempel '{s}': {e}",
+                "Timestamp '{s}': {e}",
+                s = s,
+                e = e
+            ))
+        })
 }
 
 /// Labels and components are stored as JSON arrays so that any character Jira allows survives the round trip.
@@ -520,7 +527,9 @@ impl Store {
     pub fn insert_entry(&self, input: &TimeEntryInput, now: DateTime<Utc>) -> Result<TimeEntry> {
         if let Some(end) = input.ended_at {
             if end < input.started_at {
-                return Err(Error::Invalid("Ende liegt vor dem Start".into()));
+                return Err(Error::Invalid(
+                    crate::tr!("Ende liegt vor dem Start", "The end is before the start").into(),
+                ));
             }
         }
         let id = {
@@ -539,8 +548,15 @@ impl Store {
             )?;
             conn.last_insert_rowid()
         };
-        self.get_entry(id)?
-            .ok_or_else(|| Error::Database("Eintrag nach Einfügen nicht gefunden".into()))
+        self.get_entry(id)?.ok_or_else(|| {
+            Error::Database(
+                crate::tr!(
+                    "Eintrag nach Einfügen nicht gefunden",
+                    "Entry not found after insert"
+                )
+                .into(),
+            )
+        })
     }
 
     /// Insert an entry that already exists remotely (import).
@@ -571,8 +587,15 @@ impl Store {
             )?;
             conn.last_insert_rowid()
         };
-        self.get_entry(id)?
-            .ok_or_else(|| Error::Database("Eintrag nach Einfügen nicht gefunden".into()))
+        self.get_entry(id)?.ok_or_else(|| {
+            Error::Database(
+                crate::tr!(
+                    "Eintrag nach Einfügen nicht gefunden",
+                    "Entry not found after insert"
+                )
+                .into(),
+            )
+        })
     }
 
     pub fn update_entry(
@@ -583,12 +606,14 @@ impl Store {
     ) -> Result<TimeEntry> {
         if let Some(end) = input.ended_at {
             if end < input.started_at {
-                return Err(Error::Invalid("Ende liegt vor dem Start".into()));
+                return Err(Error::Invalid(
+                    crate::tr!("Ende liegt vor dem Start", "The end is before the start").into(),
+                ));
             }
         }
         let current = self
             .get_entry(id)?
-            .ok_or_else(|| Error::NotFound(format!("Eintrag {id}")))?;
+            .ok_or_else(|| Error::NotFound(crate::tr!("Eintrag {id}", "Entry {id}", id = id)))?;
         let changed = current.issue_key != input.issue_key
             || current.started_at != input.started_at
             || current.ended_at != input.ended_at
@@ -616,7 +641,7 @@ impl Store {
             )?;
         }
         self.get_entry(id)?
-            .ok_or_else(|| Error::NotFound(format!("Eintrag {id}")))
+            .ok_or_else(|| Error::NotFound(crate::tr!("Eintrag {id}", "Entry {id}", id = id)))
     }
 
     pub fn get_entry(&self, id: i64) -> Result<Option<TimeEntry>> {
@@ -669,7 +694,7 @@ impl Store {
     pub fn stop_entry(&self, id: i64, at: DateTime<Utc>, now: DateTime<Utc>) -> Result<TimeEntry> {
         let entry = self
             .get_entry(id)?
-            .ok_or_else(|| Error::NotFound(format!("Eintrag {id}")))?;
+            .ok_or_else(|| Error::NotFound(crate::tr!("Eintrag {id}", "Entry {id}", id = id)))?;
         let at = if at < entry.started_at {
             entry.started_at
         } else {
@@ -683,7 +708,7 @@ impl Store {
             )?;
         }
         self.get_entry(id)?
-            .ok_or_else(|| Error::NotFound(format!("Eintrag {id}")))
+            .ok_or_else(|| Error::NotFound(crate::tr!("Eintrag {id}", "Entry {id}", id = id)))
     }
 
     pub fn set_entry_note(&self, id: i64, note: &str, now: DateTime<Utc>) -> Result<()> {
@@ -705,10 +730,12 @@ impl Store {
     ) -> Result<TimeEntry> {
         let entry = self
             .get_entry(id)?
-            .ok_or_else(|| Error::NotFound(format!("Eintrag {id}")))?;
+            .ok_or_else(|| Error::NotFound(crate::tr!("Eintrag {id}", "Entry {id}", id = id)))?;
         if let Some(end) = entry.ended_at {
             if started_at > end {
-                return Err(Error::Invalid("Start liegt nach dem Ende".into()));
+                return Err(Error::Invalid(
+                    crate::tr!("Start liegt nach dem Ende", "The start is after the end").into(),
+                ));
             }
         }
         {
@@ -721,7 +748,7 @@ impl Store {
             )?;
         }
         self.get_entry(id)?
-            .ok_or_else(|| Error::NotFound(format!("Eintrag {id}")))
+            .ok_or_else(|| Error::NotFound(crate::tr!("Eintrag {id}", "Entry {id}", id = id)))
     }
 
     pub fn soft_delete_entry(&self, id: i64, now: DateTime<Utc>) -> Result<Option<TimeEntry>> {

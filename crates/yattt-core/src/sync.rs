@@ -32,13 +32,20 @@ impl<'a> BookingContext<'a> {
 }
 
 fn issue_numeric_id(store: &Store, issue_key: &str) -> Result<i64> {
-    let issue = store
-        .get_issue(issue_key)?
-        .ok_or_else(|| Error::NotFound(format!("Ticket {issue_key} ist lokal nicht bekannt")))?;
-    issue
-        .id
-        .parse::<i64>()
-        .map_err(|_| Error::Parse(format!("Ticket-ID {} ist nicht numerisch", issue.id)))
+    let issue = store.get_issue(issue_key)?.ok_or_else(|| {
+        Error::NotFound(crate::tr!(
+            "Ticket {issue_key} ist lokal nicht bekannt",
+            "Ticket {issue_key} is not known locally",
+            issue_key = issue_key
+        ))
+    })?;
+    issue.id.parse::<i64>().map_err(|_| {
+        Error::Parse(crate::tr!(
+            "Ticket-ID {id} ist nicht numerisch",
+            "Ticket ID {id} is not numeric",
+            id = issue.id
+        ))
+    })
 }
 
 /// Book (create or update) a single stopped entry.
@@ -48,12 +55,20 @@ pub async fn book_entry(
     entry_id: i64,
     now: DateTime<Utc>,
 ) -> Result<BookingResult> {
-    let entry = store
-        .get_entry(entry_id)?
-        .ok_or_else(|| Error::NotFound(format!("Eintrag {entry_id}")))?;
+    let entry = store.get_entry(entry_id)?.ok_or_else(|| {
+        Error::NotFound(crate::tr!(
+            "Eintrag {entry_id}",
+            "Entry {entry_id}",
+            entry_id = entry_id
+        ))
+    })?;
     if entry.is_running() {
         return Err(Error::Invalid(
-            "Laufende Timer können nicht gebucht werden".into(),
+            crate::tr!(
+                "Laufende Timer können nicht gebucht werden",
+                "Running timers cannot be booked"
+            )
+            .into(),
         ));
     }
     let raw_seconds = entry.duration_seconds(now);
@@ -168,9 +183,9 @@ async fn book_via_tempo_cloud(
     billable: i64,
     comment: &str,
 ) -> Result<(Option<String>, Option<String>)> {
-    let tempo = ctx
-        .tempo_cloud
-        .ok_or_else(|| Error::Invalid("Tempo-Cloud-Token fehlt".into()))?;
+    let tempo = ctx.tempo_cloud.ok_or_else(|| {
+        Error::Invalid(crate::tr!("Tempo-Cloud-Token fehlt", "Tempo Cloud token is missing").into())
+    })?;
     let issue_id = issue_numeric_id(store, &entry.issue_key)?;
     if let Some(id) = &entry.tempo_worklog_id {
         match tempo

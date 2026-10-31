@@ -50,14 +50,22 @@ impl<'a> TimerEngine<'a> {
     ) -> Result<StartResult> {
         let at = at.unwrap_or(now);
         if at > now + Duration::minutes(1) {
-            return Err(Error::Invalid("Startzeit liegt in der Zukunft".into()));
+            return Err(Error::Invalid(
+                crate::tr!(
+                    "Startzeit liegt in der Zukunft",
+                    "The start time is in the future"
+                )
+                .into(),
+            ));
         }
         let mut stopped = Vec::new();
         let mut discarded = Vec::new();
         let running = self.store.running_entries()?;
         if running.iter().any(|e| e.issue_key == issue_key) {
-            return Err(Error::Invalid(format!(
-                "Für {issue_key} läuft bereits ein Timer"
+            return Err(Error::Invalid(crate::tr!(
+                "Für {issue_key} läuft bereits ein Timer",
+                "A timer is already running for {issue_key}",
+                issue_key = issue_key
             )));
         }
         if !self.settings.allow_concurrent {
@@ -92,10 +100,13 @@ impl<'a> TimerEngine<'a> {
         note: Option<&str>,
         now: DateTime<Utc>,
     ) -> Result<StopResult> {
-        let entry = self
-            .store
-            .get_entry(entry_id)?
-            .ok_or_else(|| Error::NotFound(format!("Eintrag {entry_id}")))?;
+        let entry = self.store.get_entry(entry_id)?.ok_or_else(|| {
+            Error::NotFound(crate::tr!(
+                "Eintrag {entry_id}",
+                "Entry {entry_id}",
+                entry_id = entry_id
+            ))
+        })?;
         if !entry.is_running() {
             return Ok(StopResult {
                 entry: Some(entry),
@@ -141,10 +152,13 @@ impl<'a> TimerEngine<'a> {
         decision: IdleDecision,
         now: DateTime<Utc>,
     ) -> Result<Option<TimeEntry>> {
-        let entry = self
-            .store
-            .get_entry(entry_id)?
-            .ok_or_else(|| Error::NotFound(format!("Eintrag {entry_id}")))?;
+        let entry = self.store.get_entry(entry_id)?.ok_or_else(|| {
+            Error::NotFound(crate::tr!(
+                "Eintrag {entry_id}",
+                "Entry {entry_id}",
+                entry_id = entry_id
+            ))
+        })?;
         if !entry.is_running() {
             return Ok(Some(entry));
         }

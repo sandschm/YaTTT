@@ -1,11 +1,12 @@
 <script lang="ts">
   import { store } from "../lib/store.svelte";
   import { api, type Issue } from "../lib/api";
+  import { t } from "../lib/i18n.svelte";
   import Icon from "./Icon.svelte";
 
   let {
     value = $bindable(""),
-    placeholder = "Ticket suchen oder Key eingeben …",
+    placeholder,
     onpick,
     autofocus = false,
   }: { value?: string; placeholder?: string; onpick: (issue: Issue) => void; autofocus?: boolean } = $props();
@@ -85,7 +86,7 @@
       <input
         bind:this={input}
         type="text"
-        {placeholder}
+        placeholder={placeholder ?? t("picker.placeholder")}
         bind:value={query}
         onfocus={() => (open = true)}
         onblur={() => setTimeout(() => (open = false), 150)}
@@ -106,10 +107,10 @@
         {#if looksLikeKey && !matches.some((m) => m.key.toLowerCase() === query.trim().toLowerCase())}
           <button type="button" class="option add" onmousedown={addByKey} disabled={loadingKey}>
             <Icon name="plus" size={14} />
-            <span>{query.trim().toUpperCase()} aus Jira laden</span>
+            <span>{t("picker.loadFromJira", { key: query.trim().toUpperCase() })}</span>
           </button>
         {:else if !matches.length}
-          <div class="empty faint">Kein Treffer. Einen Ticket-Key wie ABC-123 eingeben, um ihn aus Jira zu laden.</div>
+          <div class="empty faint">{t("picker.empty")}</div>
         {/if}
       </div>
     {/if}

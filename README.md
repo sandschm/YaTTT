@@ -1,141 +1,147 @@
 # YaTTT – Yet another Time Tracking Tool
 
-Desktop-Zeiterfassung an Jira-Tickets für macOS, Windows und Linux. Projekte und Aufgaben kommen
-ausschließlich aus Jira, Zeiten werden lokal gesichert und als Worklogs nach Jira bzw. Tempo gebucht.
-Der Funktionsumfang orientiert sich an [Tyme](https://www.tyme-app.com/de/).
+Desktop time tracking on Jira tickets for macOS, Windows and Linux. Projects and tasks come
+exclusively from Jira, times are stored locally and booked as worklogs to Jira or Tempo.
+The feature set follows [Tyme](https://www.tyme-app.com/en/). The interface is available in
+English and German.
 
-Geschrieben in Rust (Tauri 2, Fachlogik im Crate `yattt-core`) mit einer Svelte-Oberfläche.
+Written in Rust (Tauri 2, business logic in the `yattt-core` crate) with a Svelte UI.
 
 <p align="center">
-  <img src="docs/screenshots/tickets.png" width="920" alt="YaTTT: Ticketliste mit laufendem Timer, Komponenten- und Label-Chips">
+  <img src="docs/screenshots/tickets.png" width="920" alt="YaTTT: ticket list with a running timer, component and label chips">
 </p>
 <p align="center">
-  <img src="docs/screenshots/tray.png" width="300" alt="Menüleiste: laufende Zeit neben dem Icon, Menü mit Favoriten zum Starten und Stoppen">
-  <img src="docs/screenshots/stats.png" width="610" alt="Statistik: Erfasst, Soll, Saldo, Stunden pro Tag, Verteilung nach Projekt">
+  <img src="docs/screenshots/tray.png" width="300" alt="Menu bar: running time next to the icon, menu with favorites to start and stop">
+  <img src="docs/screenshots/stats.png" width="610" alt="Statistics: tracked, target, balance, hours per day, distribution by project">
 </p>
 
-<sub>Die App-Screenshots zeigen die Beispieldaten des Browser-Mocks; das Menüleisten-Menü ist mit den
-echten Menüeinträgen nachgestellt.</sub>
+<sub>The app screenshots show the sample data of the browser mock; the menu bar menu is a
+recreation built from the real menu entries.</sub>
 
-## Funktionen
+## Features
 
-- **Timer** pro Ticket: Start/Stop in der Ticketliste, der Timer-Leiste, im Tray-Menü und per
-  globalem Tastenkürzel. Startzeit nachträglich anpassbar, Notiz wird Worklog-Kommentar.
-  Optional mehrere Timer gleichzeitig.
-- **Tickets aus Jira**: Auswahl von Projekten und Sprints mit Suche; die Tickets der offenen
-  Sprints aller gewählten Projekte werden immer geladen. Tickettypen (z. B. Epics) lassen sich
-  ausblenden. Automatische Aktualisierung in konfigurierbarem Intervall plus manueller Refresh.
-  Subtasks erscheinen unter ihrem Elternticket, Favoriten oben, Soll/Ist-Balken aus der Schätzung.
-  Komponenten und Labels werden angezeigt und lassen sich als Filter nutzen.
-- **Favoriten** (bis zu 15) stehen im Tray-/Menüleisten-Menü und lassen sich dort per Klick
-  starten und stoppen; ein Häkchen zeigt den laufenden Timer.
-- **Filter je Projekt** für Projekte, an denen mehrere Teams arbeiten: Pro Projekt lassen sich
-  Komponenten und/oder Labels hinterlegen, dann werden nur passende Tickets geladen (wahlweise
-  „Komponente und Label“ oder „Komponente oder Label“).
-- **Zeiten**: Tagesliste und Wochen-Timeline, Einträge anlegen, bearbeiten, duplizieren, löschen
-  (mit Rückgängig), Soll/Ist pro Tag, Buchungsstatus pro Eintrag.
-- **Buchung nach Jira/Tempo**: als Jira-Worklog, über die Tempo-Timesheets-API (Data Center) oder
-  die Tempo-Cloud-API. Änderungen und Löschungen werden nachgezogen, Fehler bleiben sichtbar und
-  werden wiederholt. Optional Rundung beim Buchen und Buchen direkt beim Stoppen.
-- **Statistik**: Erfasst/Soll/Saldo, abrechenbarer Anteil, Pausen, Stunden pro Tag/Woche,
-  Verteilung nach Projekt, Top-Tickets, Aktivitäts-Heatmap der letzten zwölf Monate.
-- **Export**: CSV, JSON, druckbarer Stundenzettel (Beginn, Ende, Pausen, Arbeitszeit, Soll/Ist) als PDF.
-- **Erinnerungen**: kein Timer nach Arbeitsbeginn, Tagesziel erreicht, Pause, zu lange laufender
-  Timer, ungebuchte Zeiten.
-- **Inaktivität und Ruhezustand**: Nach konfigurierbarer Inaktivität oder nach dem Aufwachen fragt
-  die App, ob die Zeit behalten, abgezogen oder der Timer rückwirkend gestoppt werden soll.
-- **Herunterfahren, Neustart, Beenden mit laufendem Timer**: Nachfrage „stoppen oder weiterlaufen
-  lassen“ (macOS nativ, Windows über Shutdown-Block mit Dialog in der App). Zusätzlich sichert ein
-  Heartbeat den Zustand, sodass die App nach einem Absturz oder Shutdown beim nächsten Start fragt,
-  was mit dem noch laufenden Timer passieren soll.
-- **Lokal gesichert**: SQLite-Datenbank im Nutzer-Datenverzeichnis, tägliche Backups,
-  Zugangsdaten verschlüsselt mit Schlüssel im Betriebssystem-Schlüsselbund.
-- Tray-/Menüleisten-Icon mit laufender Zeit, Autostart, Hell-/Dunkelmodus.
+- **Timer** per ticket: start/stop in the ticket list, the timer bar, the tray menu and via a
+  global shortcut. The start time can be adjusted afterwards, the note becomes the worklog
+  comment. Optionally several timers at once.
+- **Tickets from Jira**: choose projects and sprints with search; the tickets of the open
+  sprints of all selected projects are always loaded. Ticket types (e.g. epics) can be hidden.
+  Automatic refresh at a configurable interval plus manual refresh. Subtasks appear under their
+  parent, favorites on top, target/actual bars from the estimate. Components and labels are
+  shown and can be used as filters.
+- **Favorites** (up to 15) appear in the tray/menu bar menu and can be started and stopped
+  there with a click; a check mark shows the running timer.
+- **Filter per project** for projects shared by several teams: components and/or labels can be
+  configured per project, then only matching tickets are loaded ("component and label" or
+  "component or label").
+- **Times**: day list and week timeline, create, edit, duplicate and delete entries (with
+  undo), target/actual per day, booking status per entry.
+- **Booking to Jira/Tempo**: as a Jira worklog, via the Tempo Timesheets API (Data Center) or
+  the Tempo Cloud API. Changes and deletions are propagated, errors stay visible and are
+  retried. Optional rounding when booking and booking right when the timer stops.
+- **Statistics**: tracked/target/balance, billable share, breaks, hours per day/week,
+  distribution by project, top tickets, activity heatmap of the last twelve months.
+- **Export**: CSV, JSON, printable timesheet (start, end, breaks, worked time, target/actual) as PDF.
+- **Reminders**: no timer after the start of the workday, daily goal reached, break, timer
+  running for a long time, unbooked times.
+- **Idle and sleep**: after a configurable idle period or after waking up, the app asks whether
+  to keep the time, subtract it or stop the timer retroactively.
+- **Shutdown, restart, quit with a running timer**: prompt "stop or keep running" (native on
+  macOS, on Windows via a shutdown block with a dialog in the app). A heartbeat additionally
+  saves the state so that after a crash or shutdown the app asks at the next start what to do
+  with the timer that was still running.
+- **Stored locally**: SQLite database in the user data directory, daily backups, credentials
+  encrypted with a key in the operating system keychain.
+- **Language**: English or German, following the system by default and switchable in the
+  settings; applies to the UI, the tray menu, notifications and messages.
+- Tray/menu bar icon with the running time, autostart, light/dark mode.
 
-## Anmeldung bei Jira (SSO, zweiter Faktor, kein API-Token)
+## Signing in to Jira (SSO, second factor, no API token)
 
-Standard ist die **Browser-Anmeldung**: Die App öffnet die Jira-Loginseite in einem eigenen
-Fenster. SSO-Weiterleitungen und ein zweiter Faktor funktionieren wie im Browser. Anschließend
-übernimmt die App die Sitzung; ein Passwort wird dabei nie gespeichert. Alternativ: Benutzername
-und Passwort (Data Center ohne SSO), Personal Access Token (Data Center) oder E-Mail und API-Token
-(Cloud). Details, Testprotokoll und Checkliste: [docs/JIRA_AUTH.md](docs/JIRA_AUTH.md).
+The default is the **browser login**: the app opens the Jira sign-in page in its own window.
+SSO redirects and a second factor work as in the browser. Afterwards the app takes over the
+session; a password is never stored. Alternatives: username and password (Data Center without
+SSO), Personal Access Token (Data Center) or email and API token (Cloud). Details, test log and
+checklist: [docs/JIRA_AUTH.md](docs/JIRA_AUTH.md).
 
 ## Installation
 
-Fertige Pakete liegen bei den [GitHub Releases](../../releases): `.dmg` (macOS), `.msi`/`-setup.exe`
-(Windows), `.deb`/`.rpm`/`.AppImage` (Linux). Ohne Code-Signatur meldet macOS beim ersten Start
-eine Warnung: Rechtsklick → Öffnen oder `xattr -dr com.apple.quarantine /Applications/YaTTT.app`.
+Ready-made packages are attached to the [GitHub releases](../../releases): `.dmg` (macOS),
+`.msi`/`-setup.exe` (Windows), `.deb`/`.rpm`/`.AppImage` (Linux). Without code signing, macOS
+shows a warning on first launch: right-click → Open or `xattr -dr com.apple.quarantine /Applications/YaTTT.app`.
 
-Linux benötigt WebKitGTK 4.1 und ein Tray-fähiges Desktop (unter GNOME ggf. die AppIndicator-Erweiterung).
+Linux needs WebKitGTK 4.1 and a tray-capable desktop (on GNOME possibly the AppIndicator extension).
 
-## Kurzanleitung
+## Quick guide
 
-### 1️⃣ Verbinden
+### 1️⃣ Connect
 
-**Einstellungen → Verbindung:** Jira-URL eintragen (bei Jira Cloud nur `https://firma.atlassian.net`),
-„Browser-Anmeldung“ lassen, **Anmelden**. Im Login-Fenster meldest du dich wie gewohnt an, mit SSO
-und zweitem Faktor. Kein API-Token, kein gespeichertes Passwort.
+**Settings → Connection:** enter the Jira URL (for Jira Cloud just `https://company.atlassian.net`),
+keep "Browser login", **Sign in**. In the login window you sign in as usual, with SSO and a
+second factor. No API token, no stored password.
 
-<img src="docs/screenshots/step-1-verbinden.png" width="760" alt="Einstellungen: Jira-URL und Anmeldeart">
+<img src="docs/screenshots/step-1-connect.png" width="760" alt="Settings: Jira URL and sign-in method">
 
-### 2️⃣ Projekte wählen
+### 2️⃣ Choose projects
 
-**Einstellungen → Projekte & Sprints:** Projekte suchen und anhaken. Die Tickets der offenen Sprints
-werden ab jetzt automatisch geladen und regelmäßig aktualisiert. Unter **Tickettypen** sind Epics
-bereits ausgeblendet.
+**Settings → Projects & Sprints:** search for projects and tick them. From now on the tickets of
+the open sprints are loaded automatically and refreshed regularly. Under **Ticket types**, epics
+are hidden by default.
 
-<img src="docs/screenshots/step-2-projekte.png" width="760" alt="Einstellungen: Projekte auswählen">
+<img src="docs/screenshots/step-2-projects.png" width="760" alt="Settings: select projects">
 
-### 3️⃣ Nur euer Team sehen *(optional)*
+### 3️⃣ See only your team *(optional)*
 
-Arbeiten mehrere Teams in einem Projekt? **Filter je Projekt:** Komponente und/oder Label eintragen,
-die Komponentenliste des Projekts kommt als Vorschlag. Es werden nur passende Tickets geladen, alle
-anderen Projekte bleiben unberührt.
+Several teams working in one project? **Filter per project:** enter a component and/or label,
+the project's component list is offered as suggestions. Only matching tickets are loaded, all
+other projects stay untouched.
 
-<img src="docs/screenshots/step-3-filter.png" width="640" alt="Einstellungen: Filter je Projekt nach Komponente und Label">
+<img src="docs/screenshots/step-3-filter.png" width="640" alt="Settings: filter per project by component and label">
 
-### 4️⃣ Timer starten
+### 4️⃣ Start a timer
 
-**Tickets:** ▶ startet den Timer am Ticket, ■ stoppt ihn. Der laufende Timer steht oben in der
-Leiste und mit seiner Zeit in der Menüleiste. ⭐ macht ein Ticket zum Favoriten für das Tray-Menü.
-Chips für Komponenten und Labels filtern die Liste per Klick.
+**Tickets:** ▶ starts the timer on a ticket, ■ stops it. The running timer sits at the top in the
+bar and with its time in the menu bar. ⭐ makes a ticket a favorite for the tray menu. Chips for
+components and labels filter the list with a click.
 
-<img src="docs/screenshots/step-4-timer.png" width="760" alt="Tickets: Filterleiste, laufender Timer, Start/Stop je Ticket">
+<img src="docs/screenshots/step-4-timer.png" width="760" alt="Tickets: filter bar, running timer, start/stop per ticket">
 
-### 5️⃣ Direkt aus der Menüleiste tracken
+### 5️⃣ Track straight from the menu bar
 
-Das Fenster kann zu bleiben: Das **Tray-Icon** zeigt die laufende Zeit und das Ticket. Im Menü stehen
-der laufende Timer mit **Timer stoppen**, darunter die **Favoriten**: ein Klick startet den Timer für
-dieses Ticket, ein Klick auf den laufenden (✓) stoppt ihn. Zuletzt genutzte Tickets stehen mit ▶ darunter.
-Bis zu 15 Favoriten, markiert per ⭐ in der Ticketliste.
+The window can stay closed: the **tray icon** shows the running time and the ticket. The menu
+lists the running timer with **Stop timer**, below it the **favorites**: one click starts the timer
+for that ticket, a click on the running one (✓) stops it. Recently used tickets follow with ▶.
+Up to 15 favorites, marked with ⭐ in the ticket list.
 
-<img src="docs/screenshots/tray.png" width="460" alt="Menüleisten-Menü: laufender Timer, Favoriten mit Häkchen, zuletzt genutzte Tickets">
+<img src="docs/screenshots/tray.png" width="460" alt="Menu bar menu: running timer, favorites with check mark, recently used tickets">
 
-### 6️⃣ Zeiten prüfen und buchen
+### 6️⃣ Check and book times
 
-**Zeiten:** Tagesliste mit Soll/Ist, Einträge anpassen oder nachtragen, dann **Woche buchen**. Jeder
-Eintrag zeigt seinen Stand: *lokal*, *gebucht*, *geändert* oder *Fehler*. Gebuchtes wird bei Änderungen
-in Jira nachgezogen.
+**Times:** day list with target/actual, adjust or add entries, then **Book week**. Every entry
+shows its state: *local*, *booked*, *modified* or *Error*. Booked entries are updated in Jira when
+they change.
 
-<img src="docs/screenshots/step-5-zeiten.png" width="760" alt="Zeiten: Tagesliste mit Buchungsstatus">
+<img src="docs/screenshots/step-5-times.png" width="760" alt="Times: day list with booking status">
 
-### 7️⃣ Überblick behalten
+### 7️⃣ Keep an overview
 
-**Statistik:** Erfasst, Soll und Saldo, Stunden pro Tag, Verteilung nach Projekt, Top-Tickets. Export
-als CSV, JSON oder druckbarer Stundenzettel.
+**Statistics:** tracked, target and balance, hours per day, distribution by project, top tickets.
+Export as CSV, JSON or a printable timesheet.
 
-<img src="docs/screenshots/step-6-statistik.png" width="760" alt="Statistik: Kennzahlen und Stunden pro Tag">
+<img src="docs/screenshots/step-6-stats.png" width="760" alt="Statistics: key figures and hours per day">
 
-> 💡 **Jira Cloud mit Tempo:** unter *Tempo & Buchung* die Tempo-Cloud-API wählen, damit Buchungen sofort
-> in Tempo erscheinen. Jira-Worklogs übernimmt Tempo Cloud erst über Nacht.
+> 💡 **Jira Cloud with Tempo:** under *Tempo & booking* choose the Tempo Cloud API so that
+> bookings appear in Tempo immediately. Tempo Cloud only picks up Jira worklogs overnight.
 >
-> 🔌 **Rechner herunterfahren bei laufendem Timer?** YaTTT hält kurz an und fragt: stoppen oder
-> weiterlaufen lassen. Nach einem Absturz fragt die App beim nächsten Start nach.
+> 🔌 **Shutting down with a running timer?** YaTTT pauses briefly and asks: stop or keep running.
+> After a crash the app asks at the next start.
+>
+> 🌐 **Language:** *Behavior → Language* switches between English and German; the default
+> follows the operating system.
 
-## Entwicklung
+## Development
 
-Voraussetzungen: Rust (stable), Node.js 20+, plattformabhängige
-[Tauri-Voraussetzungen](https://tauri.app/start/prerequisites/).
+Prerequisites: Rust (stable), Node.js 20+, platform-specific
+[Tauri prerequisites](https://tauri.app/start/prerequisites/).
 
 ```bash
 npm install
@@ -145,17 +151,22 @@ npm install
 npm run tauri dev
 ```
 
-Die Oberfläche lässt sich auch ohne Tauri im Browser entwickeln (Mock-Backend mit Beispieldaten):
+The UI can also be developed in a browser without Tauri (mock backend with sample data):
 
 ```bash
 npm run dev
 ```
 
-Im Mock öffnen `?view=times|stats|settings` und `?tab=selection` eine Ansicht direkt. Die Screenshots
-in `docs/screenshots/` entstehen daraus mit `scripts/screenshots.sh` (macOS, WebKit-Snapshot in
-Retina-Auflösung); das Menüleisten-Bild rendert `scripts/tray-mockup.html`.
+In the mock, `?view=times|stats|settings`, `?tab=selection` and `?lang=de|en` open a view directly
+in a given language. The screenshots in `docs/screenshots/` are generated from it with
+`scripts/screenshots.sh` (macOS, WebKit snapshot at Retina resolution); the menu bar image is
+rendered from `scripts/tray-mockup.html`.
 
-Tests und Prüfungen:
+UI texts live in `src/lib/locales/de.ts` and `en.ts`; texts produced by the Rust side (tray
+menu, notifications, error messages, CSV headers) use the `tr!("Deutsch", "English")` macro of
+`yattt-core`.
+
+Tests and checks:
 
 ```bash
 cargo test -p yattt-core
@@ -165,33 +176,33 @@ cargo test -p yattt-core
 npm run check
 ```
 
-Release-Build:
+Release build:
 
 ```bash
 npm run tauri build
 ```
 
-## Projektstruktur
+## Project structure
 
 ```
-crates/yattt-core   Fachlogik ohne Tauri: Jira-/Tempo-Client, SQLite, Timer, Statistik, Export, Secrets
-src-tauri           Tauri-App: Commands, Tray, Login-Fenster, Scheduler, Shutdown-Hooks
-src                 Svelte-Frontend (Views, Komponenten, Mock-Backend)
-docs                Plan, Review, Tyme-Analyse, Jira-Auth, Architektur, Release
-.github/workflows   CI (Tests auf drei Plattformen) und Release (tauri-action)
+crates/yattt-core   Business logic without Tauri: Jira/Tempo client, SQLite, timer, statistics, export, secrets, i18n
+src-tauri           Tauri app: commands, tray, login window, scheduler, shutdown hooks
+src                 Svelte frontend (views, components, mock backend, locales)
+docs                Plan, review, Tyme analysis, Jira auth, architecture, release
+.github/workflows   CI (tests on three platforms) and release (tauri-action)
 ```
 
-Weitere Dokumentation: [Plan](docs/PLAN.md), [Review](docs/PLAN_REVIEW.md),
-[Tyme-Analyse](docs/TYME_ANALYSE.md), [Architektur](docs/ARCHITECTURE.md),
+Further documentation: [Plan](docs/PLAN.md), [Review](docs/PLAN_REVIEW.md),
+[Tyme analysis](docs/TYME_ANALYSIS.md), [Architecture](docs/ARCHITECTURE.md),
 [Release](docs/RELEASE.md).
 
-## Datenablage
+## Data locations
 
-| Was | macOS | Windows | Linux |
+| What | macOS | Windows | Linux |
 |---|---|---|---|
-| Einstellungen, verschlüsselte Zugangsdaten | `~/Library/Application Support/YaTTT` | `%APPDATA%\YaTTT` | `~/.config/YaTTT` |
-| Datenbank, Backups, Logs | `~/Library/Application Support/YaTTT` | `%APPDATA%\YaTTT` | `~/.local/share/YaTTT` |
+| Settings, encrypted credentials | `~/Library/Application Support/YaTTT` | `%APPDATA%\YaTTT` | `~/.config/YaTTT` |
+| Database, backups, logs | `~/Library/Application Support/YaTTT` | `%APPDATA%\YaTTT` | `~/.local/share/YaTTT` |
 
-## Lizenz
+## License
 
 MIT

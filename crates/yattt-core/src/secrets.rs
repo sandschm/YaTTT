@@ -135,7 +135,7 @@ impl EncryptedSecretStore {
         let nonce = XNonce::from_slice(&nonce_bytes);
         let plain = cipher
             .decrypt(nonce, ciphertext.as_ref())
-            .map_err(|_| Error::Keyring("Gespeicherte Zugangsdaten konnten nicht entschlüsselt werden (Schlüssel geändert?)".into()))?;
+            .map_err(|_| Error::Keyring(crate::tr!("Gespeicherte Zugangsdaten konnten nicht entschlüsselt werden (Schlüssel geändert?)", "Stored credentials could not be decrypted (key changed?)").into()))?;
         Ok(serde_json::from_slice(&plain)?)
     }
 
@@ -146,9 +146,9 @@ impl EncryptedSecretStore {
         rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut nonce_bytes);
         let nonce = XNonce::from_slice(&nonce_bytes);
         let plain = serde_json::to_vec(map)?;
-        let ciphertext = cipher
-            .encrypt(nonce, plain.as_ref())
-            .map_err(|_| Error::Keyring("Verschlüsselung fehlgeschlagen".into()))?;
+        let ciphertext = cipher.encrypt(nonce, plain.as_ref()).map_err(|_| {
+            Error::Keyring(crate::tr!("Verschlüsselung fehlgeschlagen", "Encryption failed").into())
+        })?;
         let file = EncryptedFile {
             v: 1,
             nonce: b64().encode(nonce_bytes),
@@ -165,12 +165,22 @@ fn generate_key() -> [u8; 32] {
 }
 
 fn decode_key(encoded: &str) -> Result<[u8; 32]> {
-    let bytes = b64()
-        .decode(encoded)
-        .map_err(|e| Error::Keyring(format!("Master-Key ungültig: {e}")))?;
-    bytes
-        .try_into()
-        .map_err(|_| Error::Keyring("Master-Key hat falsche Länge".into()))
+    let bytes = b64().decode(encoded).map_err(|e| {
+        Error::Keyring(crate::tr!(
+            "Master-Key ungültig: {e}",
+            "Master key invalid: {e}",
+            e = e
+        ))
+    })?;
+    bytes.try_into().map_err(|_| {
+        Error::Keyring(
+            crate::tr!(
+                "Master-Key hat falsche Länge",
+                "Master key has the wrong length"
+            )
+            .into(),
+        )
+    })
 }
 
 fn write_private(path: &std::path::Path, data: &[u8]) -> Result<()> {

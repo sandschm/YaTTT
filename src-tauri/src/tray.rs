@@ -114,7 +114,7 @@ fn build_menu(app: &AppHandle, state: &Arc<AppState>) -> tauri::Result<Menu<taur
         menu.append(&MenuItem::with_id(
             app,
             "status",
-            "Kein Timer läuft",
+            yattt_core::tr!("Kein Timer läuft", "No timer running"),
             false,
             None::<&str>,
         )?)?;
@@ -144,7 +144,7 @@ fn build_menu(app: &AppHandle, state: &Arc<AppState>) -> tauri::Result<Menu<taur
         menu.append(&MenuItem::with_id(
             app,
             "stop",
-            "Timer stoppen",
+            yattt_core::tr!("Timer stoppen", "Stop timer"),
             true,
             None::<&str>,
         )?)?;
@@ -156,7 +156,7 @@ fn build_menu(app: &AppHandle, state: &Arc<AppState>) -> tauri::Result<Menu<taur
         menu.append(&MenuItem::with_id(
             app,
             "favorites",
-            "Favoriten",
+            yattt_core::tr!("Favoriten", "Favorites"),
             false,
             None::<&str>,
         )?)?;
@@ -206,14 +206,14 @@ fn build_menu(app: &AppHandle, state: &Arc<AppState>) -> tauri::Result<Menu<taur
     menu.append(&MenuItem::with_id(
         app,
         "show",
-        "YaTTT anzeigen",
+        yattt_core::tr!("YaTTT anzeigen", "Show YaTTT"),
         true,
         None::<&str>,
     )?)?;
     menu.append(&MenuItem::with_id(
         app,
         "refresh",
-        "Tickets aktualisieren",
+        yattt_core::tr!("Tickets aktualisieren", "Refresh tickets"),
         true,
         None::<&str>,
     )?)?;
@@ -221,7 +221,7 @@ fn build_menu(app: &AppHandle, state: &Arc<AppState>) -> tauri::Result<Menu<taur
     menu.append(&MenuItem::with_id(
         app,
         "quit",
-        "YaTTT beenden",
+        yattt_core::tr!("YaTTT beenden", "Quit YaTTT"),
         true,
         None::<&str>,
     )?)?;
@@ -269,10 +269,11 @@ pub fn update_title(app: &AppHandle, state: &Arc<AppState>) {
                 running[0].issue_key
             )
         } else {
-            format!(
-                "{} ({} Timer)",
-                format_duration(total, settings.work.time_format),
-                running.len()
+            yattt_core::tr!(
+                "{d} ({n} Timer)",
+                "{d} ({n} timers)",
+                d = format_duration(total, settings.work.time_format),
+                n = running.len()
             )
         };
         let _ = tray.set_title(Some(text.clone()));

@@ -77,14 +77,24 @@ fn ask(state: &AppState) -> ShutdownChoice {
     let keys: Vec<String> = running.iter().map(|e| e.issue_key.clone()).collect();
     {
         let alert = NSAlert::new(mtm);
-        alert.setMessageText(&NSString::from_str("Ein Timer läuft noch"));
-        alert.setInformativeText(&NSString::from_str(&format!(
-            "YaTTT erfasst gerade Zeit für {}. Soll der Timer gestoppt werden oder weiterlaufen? Bei „Weiterlaufen lassen“ zählt die Zeit weiter und wird beim nächsten Start angezeigt.",
-            keys.join(", ")
+        alert.setMessageText(&NSString::from_str(yattt_core::tr!(
+            "Ein Timer läuft noch",
+            "A timer is still running"
         )));
-        alert.addButtonWithTitle(&NSString::from_str("Timer stoppen und beenden"));
-        alert.addButtonWithTitle(&NSString::from_str("Weiterlaufen lassen und beenden"));
-        alert.addButtonWithTitle(&NSString::from_str("Abbrechen"));
+        alert.setInformativeText(&NSString::from_str(&yattt_core::tr!(
+            "YaTTT erfasst gerade Zeit für {keys}. Soll der Timer gestoppt werden oder weiterlaufen? Bei „Weiterlaufen lassen“ zählt die Zeit weiter und wird beim nächsten Start angezeigt.",
+            "YaTTT is tracking time for {keys}. Stop the timer or keep it running? With \"Keep running\" the time keeps counting and is shown at the next start.",
+            keys = keys.join(", ")
+        )));
+        alert.addButtonWithTitle(&NSString::from_str(yattt_core::tr!(
+            "Timer stoppen und beenden",
+            "Stop timer and quit"
+        )));
+        alert.addButtonWithTitle(&NSString::from_str(yattt_core::tr!(
+            "Weiterlaufen lassen und beenden",
+            "Keep running and quit"
+        )));
+        alert.addButtonWithTitle(&NSString::from_str(yattt_core::tr!("Abbrechen", "Cancel")));
         let response = alert.runModal();
         match response {
             NS_ALERT_FIRST_BUTTON => ShutdownChoice::StopAndQuit,

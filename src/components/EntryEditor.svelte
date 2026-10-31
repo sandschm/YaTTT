@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { store } from "../lib/store.svelte";
   import { api, type TimeEntry, type TimeEntryInput } from "../lib/api";
+  import { t } from "../lib/i18n.svelte";
   import { formatDuration, fromLocalInput, parseDurationInput, toLocalInput } from "../lib/format";
   import IssuePicker from "./IssuePicker.svelte";
 
@@ -49,19 +50,19 @@
   async function save() {
     error = "";
     if (!issueKey) {
-      error = "Bitte ein Ticket wählen.";
+      error = t("editor.errTicket");
       return;
     }
     if (!start) {
-      error = "Bitte eine Startzeit angeben.";
+      error = t("editor.errStart");
       return;
     }
     if (!isRunning && !end) {
-      error = "Bitte eine Endzeit angeben.";
+      error = t("editor.errEnd");
       return;
     }
     if (end && new Date(end) < new Date(start)) {
-      error = "Das Ende liegt vor dem Start.";
+      error = t("editor.errOrder");
       return;
     }
     const input: TimeEntryInput = {
@@ -92,43 +93,43 @@
 
 <div class="overlay" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="entry-editor-title">
-    <h2 id="entry-editor-title">{entry ? "Eintrag bearbeiten" : "Neuer Zeiteintrag"}</h2>
+    <h2 id="entry-editor-title">{entry ? t("editor.edit") : t("editor.new")}</h2>
     {#if entry?.syncState === "synced"}
-      <p class="badge warning">Bereits nach Jira gebucht – Änderungen werden als Aktualisierung übertragen.</p>
+      <p class="badge warning">{t("editor.synced")}</p>
     {/if}
     <div class="field">
-      <label for="entry-issue">Ticket</label>
+      <label for="entry-issue">{t("editor.ticket")}</label>
       <IssuePicker bind:value={issueKey} onpick={(i) => (issueKey = i.key)} autofocus={!entry} />
     </div>
     <div class="grid">
       <div class="field">
-        <label for="entry-start">Start</label>
+        <label for="entry-start">{t("editor.start")}</label>
         <input id="entry-start" type="datetime-local" bind:value={start} />
       </div>
       <div class="field">
-        <label for="entry-end">Ende</label>
-        <input id="entry-end" type="datetime-local" bind:value={end} disabled={isRunning} placeholder={isRunning ? "läuft" : ""} />
+        <label for="entry-end">{t("editor.end")}</label>
+        <input id="entry-end" type="datetime-local" bind:value={end} disabled={isRunning} placeholder={isRunning ? t("editor.running") : ""} />
       </div>
       <div class="field">
-        <label for="entry-duration">Dauer</label>
+        <label for="entry-duration">{t("editor.duration")}</label>
         <div class="row">
-          <input id="entry-duration" type="text" placeholder={isRunning ? "läuft" : "z. B. 1:30 oder 45m"} bind:value={durationText} onblur={applyDuration} onkeydown={(e) => e.key === "Enter" && applyDuration()} disabled={isRunning} />
+          <input id="entry-duration" type="text" placeholder={isRunning ? t("editor.running") : t("editor.durationPlaceholder")} bind:value={durationText} onblur={applyDuration} onkeydown={(e) => e.key === "Enter" && applyDuration()} disabled={isRunning} />
           <span class="mono muted">{isRunning ? "" : formatDuration(durationSeconds, "hoursMinutes")}</span>
         </div>
       </div>
     </div>
     <div class="field">
-      <label for="entry-note">Notiz (Worklog-Kommentar)</label>
+      <label for="entry-note">{t("editor.note")}</label>
       <textarea id="entry-note" rows="2" bind:value={note}></textarea>
     </div>
     <label class="check">
       <input type="checkbox" bind:checked={billable} />
-      <span>Abrechenbar</span>
+      <span>{t("editor.billable")}</span>
     </label>
     {#if error}<div class="error">{error}</div>{/if}
     <div class="actions">
-      <button class="btn" type="button" onclick={onclose}>Abbrechen</button>
-      <button class="btn primary" type="button" onclick={save} disabled={saving}>{entry ? "Speichern" : "Anlegen"}</button>
+      <button class="btn" type="button" onclick={onclose}>{t("common.cancel")}</button>
+      <button class="btn primary" type="button" onclick={save} disabled={saving}>{entry ? t("common.save") : t("editor.create")}</button>
     </div>
   </div>
 </div>

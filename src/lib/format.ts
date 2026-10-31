@@ -1,9 +1,11 @@
 import type { TimeFormat } from "./api";
+import { i18n, t } from "./i18n.svelte";
 
 export function formatDuration(seconds: number, format: TimeFormat = "hoursMinutes", withSeconds = false): string {
   const s = Math.max(0, Math.floor(seconds));
   if (format === "decimal") {
-    return (s / 3600).toFixed(2).replace(".", ",") + " h";
+    const text = (s / 3600).toFixed(2);
+    return (i18n.locale === "de" ? text.replace(".", ",") : text) + " h";
   }
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
@@ -21,12 +23,12 @@ export function formatSigned(seconds: number, format: TimeFormat = "hoursMinutes
 
 export function formatTime(iso: string | Date): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
-  return d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString(i18n.intlTag, { hour: "2-digit", minute: "2-digit" });
 }
 
 export function formatDate(iso: string | Date, opts: Intl.DateTimeFormatOptions = { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" }): string {
   const d = typeof iso === "string" ? parseDate(iso) : iso;
-  return d.toLocaleDateString("de-DE", opts);
+  return d.toLocaleDateString(i18n.intlTag, opts);
 }
 
 /** Parses "YYYY-MM-DD" as a local date (not UTC). */
@@ -64,11 +66,11 @@ export function startOfWeek(d: Date, firstDay = 0): Date {
 }
 
 export function relativeTime(iso: string | null): string {
-  if (!iso) return "nie";
+  if (!iso) return t("common.never");
   const diff = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 60) return "gerade eben";
-  if (diff < 3600) return `vor ${Math.floor(diff / 60)} min`;
-  if (diff < 86400) return `vor ${Math.floor(diff / 3600)} h`;
+  if (diff < 60) return t("common.justNow");
+  if (diff < 3600) return t("common.minutesAgo", { n: Math.floor(diff / 60) });
+  if (diff < 86400) return t("common.hoursAgo", { n: Math.floor(diff / 3600) });
   return formatDate(iso, { day: "2-digit", month: "2-digit" });
 }
 

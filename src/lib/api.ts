@@ -7,6 +7,8 @@ export type AuthMethod = "browserSession" | "password" | "personalAccessToken" |
 export type RoundingMode = "nearest" | "up" | "down";
 export type TimeFormat = "hoursMinutes" | "decimal";
 export type Theme = "system" | "light" | "dark";
+/** UI language: follow the operating system, or force German/English. */
+export type Language = "system" | "de" | "en";
 export type TempoMode = "jiraWorklog" | "tempoDataCenter" | "tempoCloud";
 export type SyncState = "local" | "pending" | "synced" | "modified" | "failed";
 export type IdleDecision = "keep" | "stopAtIdleStart" | "discardIdle";
@@ -59,6 +61,7 @@ export interface Settings {
     autostart: boolean;
     notifications: boolean;
     theme: Theme;
+    language: Language;
     shortcutToggleTimer: string;
     shortcutShowWindow: string;
     showTimerInTray: boolean;
@@ -350,6 +353,8 @@ const tauriApi = {
   setTempoCloudToken: (token: string | null) => invoke<void>("set_tempo_cloud_token", { token }),
   // info
   getAppInfo: () => invoke<AppInfo>("get_app_info"),
+  /** "de" or "en": the language the operating system prefers. */
+  getSystemLanguage: () => invoke<string>("get_system_language"),
 };
 
 // Outside Tauri (plain browser during development) a mock backend is used so the UI can be

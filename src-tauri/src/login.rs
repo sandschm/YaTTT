@@ -40,7 +40,11 @@ fn to_stored(c: &tauri::webview::Cookie<'_>) -> StoredCookie {
 /// Opens the login window and resolves once the session works or the window is closed.
 pub async fn browser_login(app: AppHandle, state: Arc<AppState>) -> Result<AuthStatus, String> {
     if state.login_in_progress.swap(true, Ordering::SeqCst) {
-        return Err("Eine Anmeldung läuft bereits".into());
+        return Err(yattt_core::tr!(
+            "Eine Anmeldung läuft bereits",
+            "A sign-in is already in progress"
+        )
+        .into());
     }
     let result = browser_login_inner(&app, &state).await;
     state.login_in_progress.store(false, Ordering::SeqCst);
@@ -54,9 +58,14 @@ async fn browser_login_inner(app: &AppHandle, state: &Arc<AppState>) -> Result<A
     let settings = state.settings();
     let base = settings.jira_base();
     if base.is_empty() {
-        return Err("Bitte zuerst die Jira-URL eintragen".into());
+        return Err(yattt_core::tr!(
+            "Bitte zuerst die Jira-URL eintragen",
+            "Please enter the Jira URL first"
+        )
+        .into());
     }
-    let base_url = Url::parse(&base).map_err(|e| format!("Ungültige Jira-URL: {e}"))?;
+    let base_url = Url::parse(&base)
+        .map_err(|e| yattt_core::tr!("Ungültige Jira-URL: {e}", "Invalid Jira URL: {e}", e = e))?;
     // `login.jsp` exists on Data Center and redirects to Atlassian ID on Cloud. The destination is
     // the site root so that no instance-specific page can 404 after the login.
     let login_url =
@@ -67,19 +76,29 @@ async fn browser_login_inner(app: &AppHandle, state: &Arc<AppState>) -> Result<A
         tokio::time::sleep(Duration::from_millis(200)).await;
     }
     let window = WebviewWindowBuilder::new(app, LOGIN_WINDOW, WebviewUrl::External(login_url))
-        .title("Bei Jira anmelden")
+        .title(yattt_core::tr!("Bei Jira anmelden", "Sign in to Jira"))
         .inner_size(560.0, 760.0)
         .min_inner_size(420.0, 520.0)
         .center()
         .user_agent(DESKTOP_UA)
         .build()
-        .map_err(|e| format!("Login-Fenster konnte nicht geöffnet werden: {e}"))?;
+        .map_err(|e| {
+            yattt_core::tr!(
+                "Login-Fenster konnte nicht geöffnet werden: {e}",
+                "The login window could not be opened: {e}",
+                e = e
+            )
+        })?;
     let _ = window.set_focus();
     emit(app, "login-window", "opened");
 
     let deadline = tokio::time::Instant::now() + Duration::from_secs(15 * 60);
     let mut last_fingerprint: Option<String> = None;
-    let mut last_result = String::from("Warte auf Anmeldung im Fenster …");
+    let mut last_result = yattt_core::tr!(
+        "Warte auf Anmeldung im Fenster …",
+        "Waiting for the sign-in in the window …"
+    )
+    .to_string();
     let mut ticks: u32 = 0;
     emit(app, "login-progress", last_result.clone());
     loop {
@@ -87,13 +106,17 @@ async fn browser_login_inner(app: &AppHandle, state: &Arc<AppState>) -> Result<A
         ticks += 1;
         if app.get_webview_window(LOGIN_WINDOW).is_none() {
             emit(app, "login-window", "closed");
-            return Err(format!(
-                "Anmeldung abgebrochen. Letzte Prüfung: {last_result}"
+            return Err(yattt_core::tr!(
+                "Anmeldung abgebrochen. Letzte Prüfung: {last_result}",
+                "Sign-in cancelled. Last check: {last_result}",
+                last_result = last_result
             ));
         }
         if tokio::time::Instant::now() > deadline {
-            return Err(format!(
-                "Zeitüberschreitung bei der Anmeldung. Letzte Prüfung: {last_result}"
+            return Err(yattt_core::tr!(
+                "Zeitüberschreitung bei der Anmeldung. Letzte Prüfung: {last_result}",
+                "Sign-in timed out. Last check: {last_result}",
+                last_result = last_result
             ));
         }
         let cookies = match window.cookies_for_url(base_url.clone()) {
@@ -153,23 +176,41 @@ async fn browser_login_inner(app: &AppHandle, state: &Arc<AppState>) -> Result<A
                 emit(
                     app,
                     "login-progress",
-                    format!("Sitzung erkannt: {}", user.display_name),
+                    yattt_core::tr!(
+                        "Sitzung erkannt: {name}",
+                        "Session detected: {name}",
+                        name = user.display_name
+                    ),
                 );
                 let status = install_client(app, state, Credential::Cookies { cookies }).await?;
                 return Ok(status);
             }
             Err(yattt_core::Error::AuthExpired(code)) => {
                 last_result = if session_cookies.is_empty() {
-                    format!("noch keine Sitzung (HTTP {code})")
+                    yattt_core::tr!(
+                        "noch keine Sitzung (HTTP {code})",
+                        "no session yet (HTTP {code})",
+                        code = code
+                    )
                 } else {
-                    format!("Sitzungs-Cookies vorhanden ({}), Jira akzeptiert sie noch nicht (HTTP {code})", session_cookies.join(", "))
+                    yattt_core::tr!(
+                        "Sitzungs-Cookies vorhanden ({cookies}), Jira akzeptiert sie noch nicht (HTTP {code})",
+                        "session cookies present ({cookies}), Jira does not accept them yet (HTTP {code})",
+                        cookies = session_cookies.join(", "),
+                        code = code
+                    )
                 };
             }
             Err(yattt_core::Error::Http { status: 404, .. }) => {
-                last_result = format!("{base}/rest/api/2/myself antwortet 404 – die Jira-URL ist vermutlich falsch (bei Jira Cloud nur https://<firma>.atlassian.net)");
+                last_result = yattt_core::tr!(
+                    "{base}/rest/api/2/myself antwortet 404 – die Jira-URL ist vermutlich falsch (bei Jira Cloud nur https://<firma>.atlassian.net)",
+                    "{base}/rest/api/2/myself answers 404 – the Jira URL is probably wrong (for Jira Cloud only https://<company>.atlassian.net)",
+                    base = base
+                );
             }
             Err(e) => {
-                last_result = format!("Prüfung fehlgeschlagen: {e}");
+                last_result =
+                    yattt_core::tr!("Prüfung fehlgeschlagen: {e}", "Check failed: {e}", e = e);
             }
         }
         tracing::debug!("probe result: {last_result}");

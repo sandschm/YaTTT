@@ -30,7 +30,9 @@ pub async fn install_client(
     let settings = state.settings();
     let base = settings.jira_base();
     if base.is_empty() {
-        return Err("Keine Jira-URL konfiguriert".into());
+        return Err(
+            yattt_core::tr!("Keine Jira-URL konfiguriert", "No Jira URL configured").into(),
+        );
     }
     let deployment = state
         .server
@@ -44,7 +46,11 @@ pub async fn install_client(
     let (user, server) = match client.verify().await {
         Ok(v) => v,
         Err(Error::AuthExpired(code)) => {
-            return Err(format!("Anmeldung nicht akzeptiert (HTTP {code})"));
+            return Err(yattt_core::tr!(
+                "Anmeldung nicht akzeptiert (HTTP {code})",
+                "Sign-in not accepted (HTTP {code})",
+                code = code
+            ));
         }
         Err(e) => return Err(e.to_string()),
     };
@@ -100,7 +106,11 @@ pub async fn restore_session(app: &AppHandle, state: &Arc<AppState>) {
             if let Err(e) = install_client(app, state, credential).await {
                 tracing::info!("stored session not usable: {e}");
                 state.clear_session(Some(
-                    "Gespeicherte Sitzung ist nicht mehr gültig. Bitte erneut anmelden.".into(),
+                    yattt_core::tr!(
+                        "Gespeicherte Sitzung ist nicht mehr gültig. Bitte erneut anmelden.",
+                        "The stored session is no longer valid. Please sign in again."
+                    )
+                    .into(),
                 ));
                 emit(app, "auth-changed", state.auth_status());
             }
@@ -108,8 +118,10 @@ pub async fn restore_session(app: &AppHandle, state: &Arc<AppState>) {
         Ok(None) => {}
         Err(e) => {
             tracing::warn!("secret store error: {e}");
-            state.clear_session(Some(format!(
-                "Zugangsdaten konnten nicht gelesen werden: {e}"
+            state.clear_session(Some(yattt_core::tr!(
+                "Zugangsdaten konnten nicht gelesen werden: {e}",
+                "Credentials could not be read: {e}",
+                e = e
             )));
             emit(app, "auth-changed", state.auth_status());
         }
@@ -181,11 +193,18 @@ async fn refresh_inner(app: &AppHandle, state: &Arc<AppState>) -> Result<usize, 
             handle_auth_error(app, state, &e);
             let extra = settings.selection.extra_jql.trim();
             let message = match &e {
-                yattt_core::Error::Http { status: 400, .. } if !extra.is_empty() => format!(
-                    "{e} – vermutlich wegen der zusätzlichen JQL-Bedingung „{extra}“ \
+                yattt_core::Error::Http { status: 400, .. } if !extra.is_empty() => {
+                    yattt_core::tr!(
+                        "{e} – vermutlich wegen der zusätzlichen JQL-Bedingung „{extra}“ \
                      (Einstellungen → Projekte & Sprints). Labels und Komponenten je Projekt \
-                     werden dort direkt zugeordnet."
-                ),
+                     werden dort direkt zugeordnet.",
+                        "{e} – probably because of the additional JQL condition \"{extra}\" \
+                     (Settings → Projects & Sprints). Labels and components per project are \
+                     assigned there directly.",
+                        e = e,
+                        extra = extra
+                    )
+                }
                 _ => e.to_string(),
             };
             return Err(message);
@@ -268,7 +287,11 @@ pub async fn book_entries(
     for id in ids {
         if let Some(entry) = state.store.get_entry(*id).map_err(|e| e.to_string())? {
             if entry.is_running() {
-                return Err(format!("Eintrag {id} läuft noch"));
+                return Err(yattt_core::tr!(
+                    "Eintrag {id} läuft noch",
+                    "Entry {id} is still running",
+                    id = id
+                ));
             }
             if entry.sync_state != SyncState::Synced {
                 state
@@ -288,7 +311,9 @@ pub async fn sync_pending(app: &AppHandle, state: &Arc<AppState>) -> Result<Sync
     }
     let result = async {
         let jira = state.jira()?;
-        let user = state.user().ok_or("Nicht angemeldet")?;
+        let user = state
+            .user()
+            .ok_or_else(|| yattt_core::tr!("Nicht angemeldet", "Not signed in").to_string())?;
         let tempo_cloud = state.tempo_cloud.read().unwrap().clone();
         let ctx = booking_context(state, &jira, &user, tempo_cloud.as_deref());
         match yattt_core::sync::process_pending(&ctx, &state.store, Utc::now()).await {

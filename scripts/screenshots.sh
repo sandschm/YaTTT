@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regenerates docs/screenshots/*.png from the browser mock (macOS only, needs Xcode CLT).
+# Regenerates docs/screenshots/*.png from the browser mock in English (macOS only, needs Xcode CLT).
 # Start the mock first:  npm run dev   (http://localhost:1420)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -14,7 +14,7 @@ mkdir -p "$OUT"
 # shoot <name> <query> [cssWidth] [cssHeight] → $TMP/<name>.png at 2x (CSS px × 2)
 shoot() {
   local name=$1 query=$2 w=${3:-1180} h=${4:-780}
-  "$TMP/snap" "$BASE/$query" "$w" "$h" "$TMP/raw-$name.png" 2.0 >/dev/null
+  "$TMP/snap" "$BASE/$query&lang=en" "$w" "$h" "$TMP/raw-$name.png" 2.0 >/dev/null
   sips --resampleWidth $((w * 2)) "$TMP/raw-$name.png" --out "$TMP/$name.png" >/dev/null
 }
 # crop <src> <dest> <x> <y> <w> <h>   (CSS px, applied to the 2x image)
@@ -42,9 +42,9 @@ cp "$TMP/tickets.png" "$OUT/tickets.png"
 cp "$TMP/times.png" "$OUT/times.png"
 cp "$TMP/stats.png" "$OUT/stats.png"
 # Content-area crops (x ≥ 200 skips the sidebar, y ≥ 80 the timer bar) for the quick guide.
-crop "$TMP/connection.png" "$OUT/step-1-verbinden.png" 200 80 980 600
-crop "$TMP/selection.png" "$OUT/step-2-projekte.png" 200 80 980 320
+crop "$TMP/connection.png" "$OUT/step-1-connect.png" 200 80 980 600
+crop "$TMP/selection.png" "$OUT/step-2-projects.png" 200 80 980 320
 crop "$TMP/selection.png" "$OUT/step-3-filter.png" 390 405 780 470
 crop "$TMP/tickets.png" "$OUT/step-4-timer.png" 200 80 980 455
-crop "$TMP/times.png" "$OUT/step-5-zeiten.png" 200 80 980 400
-crop "$TMP/stats.png" "$OUT/step-6-statistik.png" 200 80 980 500
+crop "$TMP/times.png" "$OUT/step-5-times.png" 200 80 980 400
+crop "$TMP/stats.png" "$OUT/step-6-stats.png" 200 80 980 500

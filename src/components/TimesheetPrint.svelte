@@ -1,11 +1,13 @@
 <script lang="ts">
-  // Print-friendly timesheet (Stundenzettel): one row per day with start, end, breaks, worked, target.
+  // Print-friendly timesheet: one row per day with start, end, breaks, worked, target.
   import type { ExportRow, Stats } from "../lib/api";
+  import { t } from "../lib/i18n.svelte";
   import { formatDate, formatDuration, formatSigned, formatTime } from "../lib/format";
 
   let { stats, rows, user }: { stats: Stats; rows: ExportRow[]; user: string } = $props();
 
   const days = $derived(stats.days.filter((d) => d.seconds > 0 || d.targetSeconds > 0));
+  const numeric: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit", year: "numeric" };
   function rowsFor(date: string) {
     return rows.filter((r) => r.date === date);
   }
@@ -13,24 +15,24 @@
 
 <div class="sheet">
   <header>
-    <h1>Stundenzettel</h1>
+    <h1>{t("sheet.title")}</h1>
     <div class="meta">
       <div><strong>{user}</strong></div>
-      <div>{formatDate(stats.from, { day: "2-digit", month: "2-digit", year: "numeric" })} – {formatDate(stats.to, { day: "2-digit", month: "2-digit", year: "numeric" })}</div>
-      <div>Erstellt mit YaTTT am {new Date().toLocaleDateString("de-DE")}</div>
+      <div>{formatDate(stats.from, numeric)} – {formatDate(stats.to, numeric)}</div>
+      <div>{t("sheet.createdWith", { date: formatDate(new Date(), numeric) })}</div>
     </div>
   </header>
 
   <table class="summary">
     <thead>
       <tr>
-        <th>Datum</th>
-        <th>Beginn</th>
-        <th>Ende</th>
-        <th>Pausen</th>
-        <th>Arbeitszeit</th>
-        <th>Soll</th>
-        <th>Differenz</th>
+        <th>{t("sheet.date")}</th>
+        <th>{t("sheet.begin")}</th>
+        <th>{t("sheet.end")}</th>
+        <th>{t("sheet.breaks")}</th>
+        <th>{t("sheet.worked")}</th>
+        <th>{t("sheet.target")}</th>
+        <th>{t("sheet.diff")}</th>
       </tr>
     </thead>
     <tbody>
@@ -48,7 +50,7 @@
     </tbody>
     <tfoot>
       <tr>
-        <th colspan="3">Summe</th>
+        <th colspan="3">{t("sheet.sum")}</th>
         <th class="num">{formatDuration(stats.breakSeconds)}</th>
         <th class="num">{formatDuration(stats.totalSeconds)}</th>
         <th class="num">{formatDuration(stats.targetSeconds)}</th>
@@ -57,16 +59,16 @@
     </tfoot>
   </table>
 
-  <h2>Einzelne Zeiten</h2>
+  <h2>{t("sheet.details")}</h2>
   <table class="details">
     <thead>
       <tr>
-        <th>Datum</th>
-        <th>Von</th>
-        <th>Bis</th>
-        <th>Dauer</th>
-        <th>Ticket</th>
-        <th>Tätigkeit</th>
+        <th>{t("sheet.date")}</th>
+        <th>{t("sheet.from")}</th>
+        <th>{t("sheet.to")}</th>
+        <th>{t("sheet.duration")}</th>
+        <th>{t("sheet.ticket")}</th>
+        <th>{t("sheet.activity")}</th>
       </tr>
     </thead>
     <tbody>
@@ -86,8 +88,8 @@
   </table>
 
   <footer>
-    <div class="sign">Datum, Unterschrift Mitarbeiter/in</div>
-    <div class="sign">Datum, Unterschrift Vorgesetzte/r</div>
+    <div class="sign">{t("sheet.signEmployee")}</div>
+    <div class="sign">{t("sheet.signManager")}</div>
   </footer>
 </div>
 

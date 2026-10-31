@@ -1,4 +1,5 @@
 // Global reactive state (Svelte 5 runes). One instance shared by all views.
+import { i18n, t } from "./i18n.svelte";
 import { api, isTauri, on, type AuthStatus, type FavoriteResult, type IdlePrompt, type Issue, type IssuesSnapshot, type RestorePrompt, type Settings, type TimeEntry } from "./api";
 
 export type View = "tickets" | "times" | "stats" | "settings";
@@ -12,7 +13,15 @@ export interface Toast {
 
 class AppStore {
   view = $state<View>("tickets");
-  settings = $state<Settings | null>(null);
+  #settings = $state<Settings | null>(null);
+  /** Assigning settings also switches the UI language. */
+  get settings(): Settings | null {
+    return this.#settings;
+  }
+  set settings(value: Settings | null) {
+    this.#settings = value;
+    if (value) i18n.setLanguage(value.behavior.language);
+  }
   auth = $state<AuthStatus>({ configured: false, authenticated: false, method: null, user: null, server: null, message: null });
   snapshot = $state<IssuesSnapshot | null>(null);
   running = $state<TimeEntry[]>([]);
@@ -40,14 +49,16 @@ class AppStore {
   connected = $derived(this.auth.authenticated);
 
   async init() {
-    const [settings, auth, snapshot, running, idle, restore] = await Promise.all([
+    const [settings, auth, snapshot, running, idle, restore, systemLanguage] = await Promise.all([
       api.getSettings(),
       api.getAuthStatus(),
       api.getIssues(),
       api.getRunning(),
       api.getIdlePrompt(),
       api.getRestorePrompt(),
+      api.getSystemLanguage().catch(() => "en"),
     ]);
+    i18n.systemLocale = systemLanguage === "de" ? "de" : "en";
     this.settings = settings;
     this.auth = auth;
     this.snapshot = snapshot;
@@ -78,7 +89,7 @@ class AppStore {
       }),
       await on<IssuesSnapshot["refresh"]>("refresh-status", (r) => {
         if (this.snapshot) this.snapshot = { ...this.snapshot, refresh: r };
-        if (r.lastError) this.toast(`Aktualisierung fehlgeschlagen: ${r.lastError}`, "error");
+        if (r.lastError) this.toast(t("store.refreshFailed", { error: r.lastError }), "error");
       }),
       await on<IdlePrompt>("idle-prompt", (p) => (this.idlePrompt = p)),
       await on<"quit" | "shutdown">("exit-requested", (reason) => (this.exitRequested = reason ?? "quit")),
@@ -89,8 +100,8 @@ class AppStore {
       }),
       await on<string>("login-progress", (s) => (this.loginProgress = s)),
       await on<{ booked: number[]; failed: [number, string][] }>("sync-done", (s) => {
-        if (s.booked.length) this.toast(`${s.booked.length} ${s.booked.length === 1 ? "Eintrag" : "Einträge"} nach Jira gebucht`, "success");
-        if (s.failed.length) this.toast(`${s.failed.length} Buchung(en) fehlgeschlagen`, "error");
+        if (s.booked.length) this.toast(s.booked.length === 1 ? t("store.bookedOne") : t("store.bookedMany", { n: s.booked.length }), "success");
+        if (s.failed.length) this.toast(t("store.bookingFailed", { n: s.failed.length }), "error");
       }),
     );
     if (!isTauri) {
@@ -141,7 +152,7 @@ class AppStore {
   async start(key: string, note?: string) {
     try {
       const result = await api.startTimer(key, note);
-      if (result.discarded.length) this.toast("Kurzer Eintrag wurde verworfen", "info");
+      if (result.discarded.length) this.toast(t("store.shortDiscarded"), "info");
       return result;
     } catch (e) {
       this.toast(String(e), "error");
@@ -152,7 +163,7 @@ class AppStore {
   async stop(entryId?: number, at?: string, note?: string) {
     try {
       const results = await api.stopTimer(entryId, at, note);
-      if (results.some((r) => r.discarded)) this.toast("Eintrag war kürzer als das Minimum und wurde verworfen", "info");
+      if (results.some((r) => r.discarded)) this.toast(t("store.tooShortDiscarded"), "info");
       return results;
     } catch (e) {
       this.toast(String(e), "error");

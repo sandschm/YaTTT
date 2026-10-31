@@ -45,7 +45,7 @@ const defaultSettings: Settings = {
     onlyAssignedToMe: false,
     hideDone: true,
     extraJql: "",
-    projectFilters: { WEB: { labels: ["team-blau"], components: ["Frontend"], matchAll: false } },
+    projectFilters: { WEB: { labels: ["team-blue"], components: ["Frontend"], matchAll: false } },
   },
   refresh: { auto: true, intervalMinutes: 10 },
   timer: {
@@ -72,6 +72,7 @@ const defaultSettings: Settings = {
     autostart: false,
     notifications: true,
     theme: "system",
+    language: "system",
     shortcutToggleTimer: "CommandOrControl+Shift+T",
     shortcutShowWindow: "CommandOrControl+Shift+Y",
     showTimerInTray: true,
@@ -82,12 +83,17 @@ const defaultSettings: Settings = {
 };
 
 let settings: Settings = structuredClone(defaultSettings);
+// Browser mock only: ?lang=de|en forces the UI language (used for screenshots).
+if (typeof location !== "undefined") {
+  const lang = new URLSearchParams(location.search).get("lang");
+  if (lang === "de" || lang === "en") settings.behavior.language = lang;
+}
 let authenticated = true;
 
 const projects: Project[] = [
-  { id: "1", key: "WEB", name: "Web-Portal", avatarUrl: null, color: "#3b82f6", selected: true },
+  { id: "1", key: "WEB", name: "Web Portal", avatarUrl: null, color: "#3b82f6", selected: true },
   { id: "2", key: "API", name: "Backend API", avatarUrl: null, color: "#10b981", selected: true },
-  { id: "3", key: "OPS", name: "Betrieb", avatarUrl: null, color: "#f59e0b", selected: false },
+  { id: "3", key: "OPS", name: "Operations", avatarUrl: null, color: "#f59e0b", selected: false },
 ];
 
 const sprints: Sprint[] = [
@@ -102,7 +108,7 @@ function mkIssue(p: Partial<Issue> & Pick<Issue, "key" | "summary" | "projectKey
     issueTypeId: null,
     issueTypeIcon: null,
     isSubtask: p.issueType === "Sub-task",
-    status: "In Arbeit",
+    status: "In Progress",
     statusCategory: "indeterminate",
     parentKey: null,
     epicKey: null,
@@ -128,15 +134,15 @@ function mkIssue(p: Partial<Issue> & Pick<Issue, "key" | "summary" | "projectKey
 let favoriteLimit = 15;
 
 let issues: Issue[] = [
-  mkIssue({ key: "WEB-101", summary: "Login-Seite: Fehlermeldung bei abgelaufener Session", projectKey: "WEB", issueType: "Bug", originalEstimateS: 7200, favorite: true, priority: "High", labels: ["team-blau", "login"], components: ["Auth"] }),
-  mkIssue({ key: "WEB-104", summary: "Dashboard-Widgets per Drag & Drop anordnen", projectKey: "WEB", issueType: "Story", originalEstimateS: 28800, status: "To Do", statusCategory: "new", labels: ["team-blau"], components: ["Dashboard"] }),
-  mkIssue({ key: "WEB-105", summary: "Widget-Layout speichern", projectKey: "WEB", issueType: "Sub-task", parentKey: "WEB-104", originalEstimateS: 7200 }),
-  mkIssue({ key: "WEB-106", summary: "Widget-Reihenfolge laden", projectKey: "WEB", issueType: "Sub-task", parentKey: "WEB-104", originalEstimateS: 3600, status: "To Do", statusCategory: "new" }),
-  mkIssue({ key: "WEB-110", summary: "Barrierefreiheit: Kontraste im Dunkelmodus prüfen", projectKey: "WEB", issueType: "Task", originalEstimateS: 10800, assignee: "Alex Weber", assigneeId: "alex", labels: ["team-rot", "a11y"], components: ["Frontend"] }),
-  mkIssue({ key: "API-77", summary: "Rate-Limiting für /search Endpunkt", projectKey: "API", issueType: "Story", originalEstimateS: 14400, sprintId: 20, sprintName: "API Sprint 9", labels: ["backend"], components: ["Search"] }),
-  mkIssue({ key: "API-80", summary: "Worklog-Webhook an Tempo weiterleiten", projectKey: "API", issueType: "Task", originalEstimateS: 5400, sprintId: 20, sprintName: "API Sprint 9", status: "Review", statusCategory: "indeterminate" }),
+  mkIssue({ key: "WEB-101", summary: "Login page: error message for expired session", projectKey: "WEB", issueType: "Bug", originalEstimateS: 7200, favorite: true, priority: "High", labels: ["team-blue", "login"], components: ["Auth"] }),
+  mkIssue({ key: "WEB-104", summary: "Arrange dashboard widgets via drag & drop", projectKey: "WEB", issueType: "Story", originalEstimateS: 28800, status: "To Do", statusCategory: "new", labels: ["team-blue"], components: ["Dashboard"] }),
+  mkIssue({ key: "WEB-105", summary: "Save widget layout", projectKey: "WEB", issueType: "Sub-task", parentKey: "WEB-104", originalEstimateS: 7200 }),
+  mkIssue({ key: "WEB-106", summary: "Load widget order", projectKey: "WEB", issueType: "Sub-task", parentKey: "WEB-104", originalEstimateS: 3600, status: "To Do", statusCategory: "new" }),
+  mkIssue({ key: "WEB-110", summary: "Accessibility: check contrast in dark mode", projectKey: "WEB", issueType: "Task", originalEstimateS: 10800, assignee: "Alex Weber", assigneeId: "alex", labels: ["team-red", "a11y"], components: ["Frontend"] }),
+  mkIssue({ key: "API-77", summary: "Rate limiting for the /search endpoint", projectKey: "API", issueType: "Story", originalEstimateS: 14400, sprintId: 20, sprintName: "API Sprint 9", labels: ["backend"], components: ["Search"] }),
+  mkIssue({ key: "API-80", summary: "Forward worklog webhook to Tempo", projectKey: "API", issueType: "Task", originalEstimateS: 5400, sprintId: 20, sprintName: "API Sprint 9", status: "Review", statusCategory: "indeterminate" }),
   mkIssue({ key: "API-81", summary: "Flaky Test: SessionRefreshIT", projectKey: "API", issueType: "Bug", sprintId: 20, sprintName: "API Sprint 9", assignee: null, assigneeId: null, status: "To Do", statusCategory: "new" }),
-  mkIssue({ key: "OPS-12", summary: "Zertifikat jira.example.com erneuern", projectKey: "OPS", issueType: "Task", sprintId: null, sprintName: null, source: "tracked" }),
+  mkIssue({ key: "OPS-12", summary: "Renew certificate for jira.example.com", projectKey: "OPS", issueType: "Task", sprintId: null, sprintName: null, source: "tracked" }),
 ];
 
 let nextId = 100;
@@ -157,22 +163,22 @@ function seedEntries() {
       syncState: sync,
       jiraWorklogId: sync === "synced" ? String(5000 + nextId) : null,
       tempoWorklogId: null,
-      syncError: sync === "failed" ? "HTTP 400: Worklog darf nicht in der Zukunft liegen" : null,
+      syncError: sync === "failed" ? "HTTP 400: Worklog must not be in the future" : null,
       bookedSeconds: sync === "synced" ? Math.round((e.getTime() - s.getTime()) / 1000) : null,
       createdAt: s.toISOString(),
       updatedAt: e.toISOString(),
     };
   };
   entries = [
-    mk(0, "WEB-101", 8, 45, 10, 15, "Session-Fehler reproduziert", "local"),
+    mk(0, "WEB-101", 8, 45, 10, 15, "Reproduced the session error", "local"),
     mk(0, "WEB-105", 10, 30, 12, 0, "", "local"),
-    mk(1, "WEB-101", 9, 0, 11, 30, "Analyse Token-Refresh"),
-    mk(1, "API-77", 12, 30, 15, 45, "Limiter implementiert"),
+    mk(1, "WEB-101", 9, 0, 11, 30, "Analyzed token refresh"),
+    mk(1, "API-77", 12, 30, 15, 45, "Implemented the limiter"),
     mk(1, "WEB-110", 16, 0, 17, 10, "", "failed"),
-    mk(2, "API-80", 8, 30, 12, 15, "Webhook-Handler"),
+    mk(2, "API-80", 8, 30, 12, 15, "Webhook handler"),
     mk(2, "API-80", 13, 0, 16, 40, "Tests"),
-    mk(3, "WEB-104", 9, 15, 12, 45, "Konzept DnD", "modified"),
-    mk(3, "OPS-12", 14, 0, 15, 0, "Zertifikat beantragt"),
+    mk(3, "WEB-104", 9, 15, 12, 45, "DnD concept", "modified"),
+    mk(3, "OPS-12", 14, 0, 15, 0, "Requested the certificate"),
     mk(4, "WEB-101", 9, 0, 17, 30, ""),
     mk(7, "API-77", 9, 0, 16, 0, ""),
     mk(8, "WEB-104", 10, 0, 18, 0, ""),
@@ -184,7 +190,7 @@ function seedEntries() {
     issueKey: "WEB-105",
     startedAt: running.toISOString(),
     endedAt: null,
-    note: "Persistenz-Schicht",
+    note: "Persistence layer",
     billable: true,
     syncState: "local",
     jiraWorklogId: null,
@@ -212,7 +218,7 @@ function authStatus(): AuthStatus {
     method: authenticated ? "cookies" : null,
     user: authenticated ? { id: "me", key: "JIRAUSER1", displayName: "Sam Miller", email: "sam@example.com", avatarUrl: null, timeZone: "Europe/Berlin" } : null,
     server: authenticated ? { baseUrl: settings.jira.baseUrl, version: "10.3.26", deployment: "dataCenter", serverTitle: "Example Jira" } : null,
-    message: authenticated ? null : "Nicht angemeldet",
+    message: authenticated ? null : "Not signed in",
   };
 }
 
@@ -311,7 +317,7 @@ export const mockApi = {
   getAuthStatus: async () => authStatus(),
   startBrowserLogin: async () => {
     mockEmit("login-window", "opened");
-    mockEmit("login-progress", "Warte auf Anmeldung im Fenster …");
+    mockEmit("login-progress", "Waiting for the sign-in in the window …");
     await delay(1500);
     mockEmit("login-window", "closed");
     authenticated = true;
@@ -406,14 +412,14 @@ export const mockApi = {
     const byProject: Record<string, string[]> = {
       WEB: ["Auth", "Dashboard", "Frontend", "Reporting"],
       API: ["Search", "Webhooks", "Worklogs"],
-      OPS: ["Infrastruktur"],
+      OPS: ["Infrastructure"],
     };
     return byProject[projectKey] ?? [];
   },
   searchLabels: async (query: string) => {
     await delay();
     const q = query.toLowerCase();
-    const all = new Set<string>(["team-blau", "team-rot", "team-gruen", "hr-core", "payroll", "backend", "login", "a11y"]);
+    const all = new Set<string>(["team-blue", "team-red", "team-green", "hr-core", "payroll", "backend", "login", "a11y"]);
     for (const i of issues) for (const l of i.labels) all.add(l);
     return [...all].filter((l) => !q || l.toLowerCase().includes(q)).sort();
   },
@@ -422,8 +428,8 @@ export const mockApi = {
     const k = key.toUpperCase();
     let i = issues.find((x) => x.key === k);
     if (!i) {
-      if (!/^[A-Z]+-\d+$/.test(k)) throw `Ticket ${k} wurde nicht gefunden`;
-      i = mkIssue({ key: k, summary: `Manuell hinzugefügt: ${k}`, projectKey: k.split("-")[0], issueType: "Task", sprintId: null, sprintName: null, source: "manual" });
+      if (!/^[A-Z]+-\d+$/.test(k)) throw `Ticket ${k} was not found`;
+      i = mkIssue({ key: k, summary: `Added manually: ${k}`, projectKey: k.split("-")[0], issueType: "Task", sprintId: null, sprintName: null, source: "manual" });
       issues.push(i);
     }
     mockEmit("issues-updated");
@@ -532,7 +538,7 @@ export const mockApi = {
       if (!e || !e.endedAt) continue;
       if (e.issueKey === "WEB-110") {
         e.syncState = "failed";
-        e.syncError = "HTTP 400: Worklog darf nicht in der Zukunft liegen";
+        e.syncError = "HTTP 400: Worklog must not be in the future";
         summary.failed.push([id, e.syncError]);
       } else {
         e.syncState = "synced";
@@ -642,6 +648,7 @@ export const mockApi = {
     logDir: "~/Library/Application Support/YaTTT/logs (Mock)",
     secretBackend: "keyring",
   }),
+  getSystemLanguage: async () => (navigator.language.toLowerCase().startsWith("de") ? "de" : "en"),
   // helpers for manual UI testing in the browser
   __simulateIdle(minutes = 25) {
     const running = entries.filter((e) => !e.endedAt).map((e) => e.id);
